@@ -7,10 +7,10 @@ package com.here.app.tcs
 
 import android.app.Dialog
 import android.content.pm.PackageManager
-import android.content.pm.PermissionInfo
 import android.graphics.PointF
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.os.PersistableBundle
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.util.Log
@@ -21,11 +21,8 @@ import android.widget.Toast
 import com.here.android.mpa.common.*
 import com.here.android.mpa.mapping.*
 import com.here.android.mpa.mapping.Map
-import com.here.android.mpa.odml.MapLoader
-import com.here.android.mpa.odml.MapPackage
-import com.here.android.mpa.routing.UMRouter
-import com.here.android.mpa.search.*
 import com.here.android.mpa.venues3d.*
+import java.lang.ref.WeakReference
 
 
 class MainActivity : AppCompatActivity() {
@@ -35,6 +32,26 @@ class MainActivity : AppCompatActivity() {
     private lateinit var map:Map
     private var mVenueCached: Boolean = false
     private var mVenueEnabled: Boolean = false
+
+    val mPositionListener : PositioningManager.OnPositionChangedListener =
+            object: PositioningManager.OnPositionChangedListener {
+                override fun onPositionFixChanged(p0: PositioningManager.LocationMethod?,
+                                                  p1: PositioningManager.LocationStatus?) {
+                    if (p1 != PositioningManager.LocationStatus.AVAILABLE) {
+                        Log.e(TAG, "Location is not valid...")
+                    }
+                }
+
+                override fun onPositionUpdated(p0: PositioningManager.LocationMethod?,
+                                               p1: GeoPosition?, p2: Boolean) {
+                    p1?.let {
+                        Log.d(TAG, "Position Updated- ${it.coordinate}, map ${if (p2) "matched" else "not matched"}")
+                    }
+//                    map.setCenter(p1?.let {
+//                        it.coordinate.takeIf { p2 == true }
+//                    }, Map.Animation.NONE)
+                }
+            }
 
 
     // Listeners could be implemented in two different way, like Java:
@@ -49,7 +66,7 @@ class MainActivity : AppCompatActivity() {
             Log.e(TAG, "Error on init: $errorMessage")
             finish()
         } else {
-            map = mapFragment.map ?: return@OnEngineInitListener;
+            map = mapFragment.map ?: return@OnEngineInitListener
             map.setCenter(GeoCoordinate(49.196261, -123.004773, 0.0), Map.Animation.NONE)
             map.setZoomLevel((map.maxZoomLevel + map.minZoomLevel) /  2, Map.Animation.NONE)
             map.setCartoMarkersVisible(IconCategory.ALL, true)
@@ -58,6 +75,19 @@ class MainActivity : AppCompatActivity() {
 
             mapFragment.mapGesture.addOnGestureListener(mGestureListener,1000, true)
             mapFragment.mapGesture.setAllGesturesEnabled(true)
+
+            LocationDataSourceHERE.getInstance()?.let {
+                val pm: PositioningManager = PositioningManager.getInstance()
+                pm.dataSource = it
+                pm.addListener(WeakReference(mPositionListener))
+                pm.start(PositioningManager.LocationMethod.GPS_NETWORK_INDOOR).also {
+                    if (!it) {
+                        Log.e(TAG, "PostioningManager: Start failed")
+                    }
+                }
+                it.indoorPositioningMode = LocationDataSourceHERE.IndoorPositioningMode.AUTOMATIC
+
+            }
 
         }
     }
@@ -68,6 +98,7 @@ class MainActivity : AppCompatActivity() {
                     when (initStatus)  {
                         VenueService.InitStatus.ONLINE_SUCCESS -> {
                             mVenueEnabled = true
+                            Log.d(TAG, "Venue init completed")
 
                         }
                         VenueService.InitStatus.OFFLINE_SUCCESS -> {
@@ -87,34 +118,50 @@ class MainActivity : AppCompatActivity() {
 
                         }
                     }
-                    (mVenueEnabled && MapEngine.isInitialized()).let {
+                    if (mVenueEnabled && MapEngine.isInitialized()) {
+                        Log.d(TAG, "Venue initialized")
+                        mapFragment.setVenuesInViewportCallback(true)
+                        mapFragment.venueService.addVenueLoadListener { venue, venueInfo, venueLoadStatus ->
+                            if (venueLoadStatus == VenueService.VenueLoadStatus.FAILED) {
+                                Log.d(TAG, "Loading venue failed!!")
+                            } else {
+                                Log.d(TAG, "Loading venue ID ${venue.id} has been completed")
+                            }
+                        }
                         mapFragment.addListener(object:VenueMapFragment.VenueListener {
                             override fun onVenueDeselected(p0: Venue?, p1: DeselectionSource?) {
-                                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+
                             }
 
                             override fun onFloorChanged(p0: Venue?, p1: Level?, p2: Level?) {
-                                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+
                             }
 
                             override fun onSpaceSelected(p0: Venue?, p1: Space?) {
-                                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                                Log.d(TAG, "onSpaceSelected")
                             }
 
                             override fun onSpaceDeselected(p0: Venue?, p1: Space?) {
-                                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+
                             }
 
                             override fun onVenueSelected(p0: Venue?) {
-                                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                                Log.d(TAG, "onVenueSelected")
+
                             }
 
                             override fun onVenueTapped(p0: Venue?, p1: Float, p2: Float) {
-                                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                                Log.d(TAG, "onVenueTapped")
+                                mapFragment.selectVenue(p0)
                             }
 
                             override fun onVenueVisibleInViewport(p0: Venue?, p1: Boolean) {
-                                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                                if (p1) {
+                                    Log.d(TAG, "Visible")
+                                } else {
+                                    Log.d(TAG, "Not visible")
+                                }
+
                             }
                         })
                     }
@@ -171,6 +218,7 @@ class MainActivity : AppCompatActivity() {
                     var category:String?
                     var coordinate:GeoCoordinate?
                     if (mapObjs.isNotEmpty()) {
+
                         mapObjs.filterIsInstance<MapProxyObject>()
                                 .forEach {
                                     when (it.type) {
@@ -199,8 +247,6 @@ class MainActivity : AppCompatActivity() {
 
 
                                             }
-
-
                                         }  else  -> {
                                         name = ""
                                         category = ""
@@ -221,7 +267,21 @@ class MainActivity : AppCompatActivity() {
                     return true
                 }
 
+                override fun onTapEvent(p0: PointF?): Boolean {
+                    p0?.let {
+                        val coordinate = map.pixelToGeo(it)
+                        map.getSelectedObjectsNearby(it)
+                                .forEach {
+                                    Log.d(TAG, "BaseType: ${it.baseType}")
+                                    if (it is SpatialObject) {
+                                        Log.d(TAG, "Spatial Object")
+                                    }
 
+                                }
+                    }
+
+                    return super.onTapEvent(p0)
+                }
             }
 
     private lateinit var mBottomSheetDialog : Dialog
@@ -269,6 +329,47 @@ class MainActivity : AppCompatActivity() {
             }
         }
         requestMissingPermissions()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle?) {
+        super.onSaveInstanceState(outState)
+        if (!MapEngine.isInitialized()) {
+            return
+        }
+        outState?.let {
+            val centerCoord = map.center
+            outState.putDouble("map_latitude", centerCoord.latitude)
+            outState.putDouble("map_longitude", centerCoord.longitude)
+            outState.putDouble("map_zoomlevel", map.zoomLevel)
+            outState.putFloat("map_orientation", map.orientation)
+            outState.putFloat("map_tilt", map.tilt)
+
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+    }
+
+    override fun onPause() {
+        super.onPause()
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
+        super.onRestoreInstanceState(savedInstanceState)
+        if (!MapEngine.isInitialized()) {
+            return
+        }
+        savedInstanceState?.let {
+            var centerCoord:GeoCoordinate = GeoCoordinate(
+                    it.getDouble("map_latitude") ?: Double.NaN,
+                    it.getDouble("map_longitude") ?: Double.NaN)
+            map.orientation = it.getFloat("map_orientation") ?: Float.NaN
+            map.tilt = it.getFloat("map_tilt") ?: Float.NaN
+            map.zoomLevel = it.getDouble("map_zoomlevel") ?: 0.0
+            map.setCenter(centerCoord, Map.Animation.NONE)
+
+        }
     }
 
     fun requestMissingPermissions() {
