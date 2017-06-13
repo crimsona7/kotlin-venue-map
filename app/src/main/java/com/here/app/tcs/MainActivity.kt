@@ -13,16 +13,22 @@ import android.os.Bundle
 import android.os.PersistableBundle
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
+import android.support.v4.view.MenuItemCompat
 import android.util.Log
 import android.view.Gravity
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
-import android.widget.LinearLayout
-import android.widget.Toast
+import android.widget.*
 import com.here.android.mpa.common.*
 import com.here.android.mpa.mapping.*
 import com.here.android.mpa.mapping.Map
+import com.here.android.mpa.routing.UMRouter
+import com.here.android.mpa.search.Category
 import com.here.android.mpa.venues3d.*
+import com.here.android.mpa.venues3d.Space
 import java.lang.ref.WeakReference
+
 
 
 class MainActivity : AppCompatActivity() {
@@ -30,8 +36,26 @@ class MainActivity : AppCompatActivity() {
     private val REQUEST_CODE : Int = 48317
     private lateinit var mapFragment:VenueMapFragment
     private lateinit var map:Map
+    private val mActivity = this
     private var mVenueCached: Boolean = false
     private var mVenueEnabled: Boolean = false
+    private var mSpinner: Spinner? = null
+    private var mAdapter: ArrayAdapter<CharSequence>? = null
+    private val mMapPropBackup: MapProperties by lazy {
+        MapProperties()
+    }
+    private lateinit var startLocation : BaseLocation
+    private lateinit var endLocation: BaseLocation
+
+
+
+
+
+    // Do not use anonymous object as a listener, like Java - basically in Kotlin
+    // there's no implicit reference to the anonymous object. Means, it will be garbage collected.
+    // See below links for the details.
+    // https://discuss.kotlinlang.org/t/function-literals-and-reference-to-enclosing-class/416
+    // https://kotlinlang.org/docs/reference/object-declarations.html
 
     val mPositionListener : PositioningManager.OnPositionChangedListener =
             object: PositioningManager.OnPositionChangedListener {
@@ -67,7 +91,7 @@ class MainActivity : AppCompatActivity() {
             finish()
         } else {
             map = mapFragment.map ?: return@OnEngineInitListener
-            map.setCenter(GeoCoordinate(49.196261, -123.004773, 0.0), Map.Animation.NONE)
+            map.setCenter(GeoCoordinate(40.74979,-73.98779, 0.0), Map.Animation.NONE)
             map.setZoomLevel((map.maxZoomLevel + map.minZoomLevel) /  2, Map.Animation.NONE)
             map.setCartoMarkersVisible(IconCategory.ALL, true)
             map.projectionMode = Map.Projection.GLOBE
@@ -86,11 +110,145 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 it.indoorPositioningMode = LocationDataSourceHERE.IndoorPositioningMode.AUTOMATIC
-
             }
 
         }
     }
+
+    val mVenueListener: VenueMapFragment.VenueListener = object: VenueMapFragment.VenueListener {
+        override fun onVenueDeselected(p0: Venue?, p1: DeselectionSource?) {
+            mAdapter?.clear()
+            mMapPropBackup.run {
+                if (isValid) {
+                    map.setCenter(geocoord, Map.Animation.BOW, zoom, orientation, tilt)
+                }
+            }
+
+
+        }
+
+        override fun onFloorChanged(p0: Venue?, p1: Level?, p2: Level?) {
+
+        }
+
+        override fun onSpaceSelected(p0: Venue?, p1: Space?) {
+            Log.d(TAG, "onSpaceSelected")
+            if (p0 != null && p1 != null) {
+                val vnControl = mapFragment.getVenueController(p0)
+                val loc = SpaceLocation(p1, vnControl)
+                mBottomSheetDialog.also {  dialog ->
+                    val name  = dialog.findViewById(R.id.poi_name) as TextView
+                    val address = dialog.findViewById(R.id.poi_address) as TextView
+                    val category = dialog.findViewById(R.id.poi_category) as TextView
+                    val phone = dialog.findViewById(R.id.poi_phone_number) as TextView
+                    name.text = p1.content.name
+                    address.text = p1.content.address.toString()
+                    phone.text = p1.content.phoneNumber
+                    Log.d(TAG, "Cat ID: ${p1.content.placeCategoryId}")
+                    Category.globalCategories()?.forEach  {
+                        if (it.id == p1.content.placeCategoryId) {
+                            category.text = it.name
+                            return@forEach
+                        } else {
+                            it.subCategories?.let { sub1 ->
+                                sub1.forEach { sub1Item ->
+                                    if (sub1Item.id == p1.content.placeCategoryId) {
+                                        category.text = sub1Item.name
+                                        return@forEach
+                                    } else {
+                                        it.subCategories?.let { sub2 ->
+                                            sub2.forEach { sub2Item ->
+                                                if (sub2Item.id == p1.content.placeCategoryId)
+                                                {
+                                                    category.text = sub2Item.name
+                                                    return@forEach
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+
+                    dialog.findViewById(R.id.set_departure).setOnClickListener {
+                        startLocation = loc
+
+                    }
+                    dialog.findViewById(R.id.set_destination).setOnClickListener {
+                        endLocation = loc
+                    }
+                }
+                mBottomSheetDialog.show()
+            }
+
+        }
+
+        override fun onSpaceDeselected(p0: Venue?, p1: Space?) {
+
+        }
+
+        override fun onVenueSelected(p0: Venue?) {
+            Log.d(TAG, "onVenueSelected")
+
+            p0?.let {
+                mMapPropBackup.run {
+                    geocoord = map.center
+                    zoom = map.zoomLevel
+                    orientation = map.orientation
+                    tilt = map.tilt
+                }
+                map.zoomTo(it.boundingBox,Map.Animation.BOW, map.orientation, 60.0F)
+                mAdapter = ArrayAdapter<CharSequence>(mActivity,
+                        android.R.layout.simple_dropdown_item_1line).takeIf {  mAdapter == null  }
+                mAdapter?.let {
+                    if (!it.isEmpty) {
+                        it.clear()
+                    }
+                }
+                p0.levels.forEach {
+                    Log.d(TAG, "Floor - ${it.floorSynonym}")
+                    mAdapter?.add(it.floorSynonym)
+                }
+
+                mSpinner?.let {
+                    it.adapter = mAdapter.takeIf {  _ ->  it.adapter == null }
+                    it.invalidate()
+                }
+                mapFragment.getVenueController(it).useVenueZoom(true)
+            }
+
+
+
+
+        }
+
+        override fun onVenueTapped(p0: Venue?, p1: Float, p2: Float) {
+            Log.d(TAG, "onVenueTapped")
+            mapFragment.selectVenue(p0)
+        }
+
+        override fun onVenueVisibleInViewport(p0: Venue?, p1: Boolean) {
+            if (p1) {
+                Log.d(TAG, "Visible")
+            } else {
+                Log.d(TAG, "Not visible")
+            }
+
+        }
+    }
+
+    val mVenueLoadListener: VenueService.VenueLoadListener
+            = VenueService.VenueLoadListener { venue, venueInfo, venueLoadStatus ->
+        if (venueLoadStatus == VenueService.VenueLoadStatus.FAILED) {
+            Log.d(TAG, "Loading venue failed!!")
+        } else {
+            Log.d(TAG, "Loading venue ID ${venue.id} has been completed")
+        }
+    }
+
+
 
     val mVenueServiceListener: VenueService.VenueServiceListener =
             object: VenueService.VenueServiceListener {
@@ -104,6 +262,7 @@ class MainActivity : AppCompatActivity() {
                         VenueService.InitStatus.OFFLINE_SUCCESS -> {
                             mVenueCached = true
                             mVenueEnabled = true
+                            Log.d(TAG, "Venue init completed as offline")
 
                         }
                         else -> {
@@ -121,49 +280,9 @@ class MainActivity : AppCompatActivity() {
                     if (mVenueEnabled && MapEngine.isInitialized()) {
                         Log.d(TAG, "Venue initialized")
                         mapFragment.setVenuesInViewportCallback(true)
-                        mapFragment.venueService.addVenueLoadListener { venue, venueInfo, venueLoadStatus ->
-                            if (venueLoadStatus == VenueService.VenueLoadStatus.FAILED) {
-                                Log.d(TAG, "Loading venue failed!!")
-                            } else {
-                                Log.d(TAG, "Loading venue ID ${venue.id} has been completed")
-                            }
-                        }
-                        mapFragment.addListener(object:VenueMapFragment.VenueListener {
-                            override fun onVenueDeselected(p0: Venue?, p1: DeselectionSource?) {
+                        mapFragment.venueService.addVenueLoadListener(mVenueLoadListener)
+                        mapFragment.addListener(mVenueListener)
 
-                            }
-
-                            override fun onFloorChanged(p0: Venue?, p1: Level?, p2: Level?) {
-
-                            }
-
-                            override fun onSpaceSelected(p0: Venue?, p1: Space?) {
-                                Log.d(TAG, "onSpaceSelected")
-                            }
-
-                            override fun onSpaceDeselected(p0: Venue?, p1: Space?) {
-
-                            }
-
-                            override fun onVenueSelected(p0: Venue?) {
-                                Log.d(TAG, "onVenueSelected")
-
-                            }
-
-                            override fun onVenueTapped(p0: Venue?, p1: Float, p2: Float) {
-                                Log.d(TAG, "onVenueTapped")
-                                mapFragment.selectVenue(p0)
-                            }
-
-                            override fun onVenueVisibleInViewport(p0: Venue?, p1: Boolean) {
-                                if (p1) {
-                                    Log.d(TAG, "Visible")
-                                } else {
-                                    Log.d(TAG, "Not visible")
-                                }
-
-                            }
-                        })
                     }
                 }
 
@@ -177,7 +296,7 @@ class MainActivity : AppCompatActivity() {
                 override fun onLongPressEvent(p0: PointF?): Boolean {
                     val coordinate:GeoCoordinate = map.pixelToGeo(p0)
                     Log.d(TAG, "Long press")
-                    Log.d(TAG, (map.getSelectedObjectsNearby(p0).size > 0).toString())
+//                    Log.d(TAG, (map.getSelectedObjectsNearby(p0).size > 0).toString())
 
 //                    val request:HereRequest = HereRequest()
 //                    request.connectivity = Request.Connectivity.DEFAULT
@@ -218,7 +337,6 @@ class MainActivity : AppCompatActivity() {
                     var category:String?
                     var coordinate:GeoCoordinate?
                     if (mapObjs.isNotEmpty()) {
-
                         mapObjs.filterIsInstance<MapProxyObject>()
                                 .forEach {
                                     when (it.type) {
@@ -241,11 +359,7 @@ class MainActivity : AppCompatActivity() {
                                                     Log.d(TAG, "Category: " + category)
                                                     Log.d(TAG, "Phone Number: " + phoneNum)
                                                     Log.d(TAG, "Address: " + address)
-
-
                                                 }
-
-
                                             }
                                         }  else  -> {
                                         name = ""
@@ -255,18 +369,13 @@ class MainActivity : AppCompatActivity() {
                                         coordinate = null
 
                                         }
-
-
-
-
                                     }
                                 }
                     } else {
                         Log.d(TAG, "mapObj Empty")
                     }
-                    return true
+                    return false
                 }
-
                 override fun onTapEvent(p0: PointF?): Boolean {
                     p0?.let {
                         val coordinate = map.pixelToGeo(it)
@@ -279,10 +388,42 @@ class MainActivity : AppCompatActivity() {
 
                                 }
                     }
-
                     return super.onTapEvent(p0)
                 }
             }
+
+    val mLevelClickListener:AdapterView.OnItemSelectedListener =
+            object: AdapterView.OnItemSelectedListener {
+        override fun onNothingSelected(parent: AdapterView<*>?) {
+//            mAdapter?.let {
+//                if (!it.isEmpty) {
+//                    val venuController:VenueController?
+//                        = mapFragment.getVenueController(mapFragment.selectedVenue)
+//                    venuController?.selectedLevel?.floorSynonym?.let { ground ->
+//                        parent?.setSelection(it.getPosition(ground))
+//                    }
+//                }
+//            }
+
+        }
+
+        override fun onItemSelected(parent: AdapterView<*>?,
+                                    view: View?,
+                                    position: Int,
+                                    id: Long) {
+            mapFragment.selectedVenue?.let {
+                it.levels.forEach { level ->
+                    if (level.floorSynonym == mAdapter?.getItem(position)) {
+                        mapFragment.getVenueController(it).selectLevel(level)
+                    }
+                }
+            }
+        }
+    }
+
+
+
+
 
     private lateinit var mBottomSheetDialog : Dialog
 
@@ -321,12 +462,7 @@ class MainActivity : AppCompatActivity() {
             findViewById(R.id.close_detail_window).setOnClickListener {
                 mBottomSheetDialog.dismiss()
             }
-            findViewById(R.id.set_departure).setOnClickListener {
 
-            }
-            findViewById(R.id.set_destination).setOnClickListener {
-
-            }
         }
         requestMissingPermissions()
     }
@@ -418,6 +554,21 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
+    override fun onBackPressed() {
+        if (mapFragment.isVenueLayerVisible) {
+            mapFragment.deselectVenue()
+        } else {
+            super.onBackPressed()
+        }
+    }
 
-
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menu?.let {
+            menuInflater.inflate(R.menu.menu_layout, it)
+            val item: MenuItem = it.findItem(R.id.level_spinner)
+            mSpinner = MenuItemCompat.getActionView(item) as Spinner
+            mSpinner?.onItemSelectedListener = mLevelClickListener
+        }
+        return super.onCreateOptionsMenu(menu)
+    }
 }
