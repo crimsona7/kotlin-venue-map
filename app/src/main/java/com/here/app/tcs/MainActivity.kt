@@ -7,6 +7,7 @@ package com.here.app.tcs
 
 import android.app.Dialog
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.graphics.PointF
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
@@ -14,17 +15,21 @@ import android.os.PersistableBundle
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v4.view.MenuItemCompat
+import android.support.v7.widget.SearchView
+import android.text.InputType
 import android.util.Log
 import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import com.here.android.mpa.common.*
 import com.here.android.mpa.mapping.*
 import com.here.android.mpa.mapping.Map
+import com.here.android.mpa.routing.RouteOptions
 import com.here.android.mpa.routing.UMRouter
-import com.here.android.mpa.search.Category
+import com.here.android.mpa.search.*
 import com.here.android.mpa.venues3d.*
 import com.here.android.mpa.venues3d.Space
 import java.lang.ref.WeakReference
@@ -33,6 +38,9 @@ import java.lang.ref.WeakReference
 
 class MainActivity : AppCompatActivity() {
     private val TAG: String = "KotlinDemo_MainActivity"
+    private val PVID_ID_REF_NAME = com.here.android.mpa.search.Request.PVID_ID_REFERENCE_NAME
+    private val VENUES_ID_REF_NAME = com.here.android.mpa.search.Request.VENUES_ID_REFERENCE_NAME
+    private val VENUE_ID_REF_NAME= com.here.android.mpa.search.Request.VENUES_VENUE_ID_REFERENCE_NAME
     private val REQUEST_CODE : Int = 48317
     private lateinit var mapFragment:VenueMapFragment
     private lateinit var map:Map
@@ -44,9 +52,8 @@ class MainActivity : AppCompatActivity() {
     private val mMapPropBackup: MapProperties by lazy {
         MapProperties()
     }
-    private lateinit var startLocation : BaseLocation
-    private lateinit var endLocation: BaseLocation
-
+    private var startLocation : BaseLocation? = null
+    private var endLocation: BaseLocation? = null
 
 
 
@@ -111,7 +118,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 it.indoorPositioningMode = LocationDataSourceHERE.IndoorPositioningMode.AUTOMATIC
             }
-
         }
     }
 
@@ -136,6 +142,14 @@ class MainActivity : AppCompatActivity() {
             if (p0 != null && p1 != null) {
                 val vnControl = mapFragment.getVenueController(p0)
                 val loc = SpaceLocation(p1, vnControl)
+                val container:LinearLayout?
+                        = mActivity.findViewById(R.id.route_container) as LinearLayout
+                val departureText: TextView?
+                        = mActivity.findViewById(R.id.departure_name) as TextView
+                val destinationText: TextView?
+                        = mActivity.findViewById(R.id.destination_name) as TextView
+                val routingButton: Button?
+                        = mActivity.findViewById(R.id.calculate_button) as Button
                 mBottomSheetDialog.also {  dialog ->
                     val name  = dialog.findViewById(R.id.poi_name) as TextView
                     val address = dialog.findViewById(R.id.poi_address) as TextView
@@ -173,11 +187,26 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     dialog.findViewById(R.id.set_departure).setOnClickListener {
+                        if (container?.visibility == View.INVISIBLE) {
+                            container.visibility = View.VISIBLE
+                        }
+                        departureText?.text = p1.content.name
                         startLocation = loc
+
+                        routingButton?.isEnabled = (startLocation != null)
+                        mBottomSheetDialog.dismiss()
 
                     }
                     dialog.findViewById(R.id.set_destination).setOnClickListener {
+                        if (container?.visibility == View.INVISIBLE) {
+                            container.visibility = View.VISIBLE
+                        }
+                        destinationText?.text = p1.content.name
                         endLocation = loc
+
+                        routingButton?.isEnabled = (endLocation != null)
+                        mBottomSheetDialog.dismiss()
+
                     }
                 }
                 mBottomSheetDialog.show()
@@ -282,6 +311,7 @@ class MainActivity : AppCompatActivity() {
                         mapFragment.setVenuesInViewportCallback(true)
                         mapFragment.venueService.addVenueLoadListener(mVenueLoadListener)
                         mapFragment.addListener(mVenueListener)
+                        mapFragment.routingController.addListener(mRoutingListener)
 
                     }
                 }
@@ -421,6 +451,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    val mRoutingListener = RoutingController.RoutingControllerListener { combinedRoute ->
+        mapFragment.routingController?.showRoute(combinedRoute)
+    }
+
 
 
 
@@ -479,7 +513,9 @@ class MainActivity : AppCompatActivity() {
             outState.putDouble("map_zoomlevel", map.zoomLevel)
             outState.putFloat("map_orientation", map.orientation)
             outState.putFloat("map_tilt", map.tilt)
-
+            mapFragment.selectedVenue?.let {
+                outState.putString("map_venue_id", it.id)
+            }
         }
     }
 
@@ -504,6 +540,11 @@ class MainActivity : AppCompatActivity() {
             map.tilt = it.getFloat("map_tilt") ?: Float.NaN
             map.zoomLevel = it.getDouble("map_zoomlevel") ?: 0.0
             map.setCenter(centerCoord, Map.Animation.NONE)
+            it.getString("map_venue_id")?.let { venueId ->
+                mapFragment.run {
+                    selectVenueAsync(venueId)
+                }
+            }
 
         }
     }
@@ -565,10 +606,31 @@ class MainActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menu?.let {
             menuInflater.inflate(R.menu.menu_layout, it)
-            val item: MenuItem = it.findItem(R.id.level_spinner)
-            mSpinner = MenuItemCompat.getActionView(item) as Spinner
+            val spinnerItem: MenuItem = it.findItem(R.id.level_spinner)
+            mSpinner = MenuItemCompat.getActionView(spinnerItem) as Spinner
             mSpinner?.onItemSelectedListener = mLevelClickListener
+            mSpinner?.setBackgroundColor(Color.WHITE)
         }
         return super.onCreateOptionsMenu(menu)
+    }
+
+    fun onClickCalculateButton(v: View): Unit {
+        val routeOption: VenueRouteOptions = VenueRouteOptions()
+        routeOption.flagsVisible = true
+        routeOption.iconsVisible = true
+        routeOption.routeOptions =
+                RouteOptions().setRouteCount(1)
+                        .setRouteType(RouteOptions.Type.SHORTEST)
+                        .setTransportMode(RouteOptions.TransportMode.PEDESTRIAN)
+        routeOption.setCorridorsPreferred(true)
+        routeOption.setElevatorsAllowed(true)
+        routeOption.setElevatorsAllowed(true)
+        routeOption.setEscalatorsAllowed(true)
+        routeOption.setRampsAllowed(true)
+        if (startLocation != null && endLocation != null &&
+                startLocation?.isValid!! && endLocation?.isValid!!) {
+            mapFragment.routingController
+                    ?.calculateCombinedRoute(startLocation, endLocation, routeOption)
+        }
     }
 }
