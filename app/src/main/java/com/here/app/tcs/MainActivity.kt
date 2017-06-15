@@ -56,8 +56,6 @@ class MainActivity : AppCompatActivity() {
     private var endLocation: BaseLocation? = null
 
 
-
-
     // Do not use anonymous object as a listener, like Java - basically in Kotlin
     // there's no implicit reference to the anonymous object. Means, it will be garbage collected.
     // See below links for the details.
@@ -151,51 +149,19 @@ class MainActivity : AppCompatActivity() {
                 val routingButton: Button?
                         = mActivity.findViewById(R.id.calculate_button) as Button
                 mBottomSheetDialog.also {  dialog ->
-                    val name  = dialog.findViewById(R.id.poi_name) as TextView
-                    val address = dialog.findViewById(R.id.poi_address) as TextView
-                    val category = dialog.findViewById(R.id.poi_category) as TextView
-                    val phone = dialog.findViewById(R.id.poi_phone_number) as TextView
-                    name.text = p1.content.name
-                    address.text = p1.content.address.toString()
-                    phone.text = p1.content.phoneNumber
+                    setPlaceDialog(p1.content.name,
+                                    p1.content.address.toString(),
+                                    convertPlaceCategoryIdToName(Category.globalCategories(), p1.content.placeCategoryId),
+                                    p1.content.phoneNumber)
                     Log.d(TAG, "Cat ID: ${p1.content.placeCategoryId}")
-                    Category.globalCategories()?.forEach  {
-                        if (it.id == p1.content.placeCategoryId) {
-                            category.text = it.name
-                            return@forEach
-                        } else {
-                            it.subCategories?.let { sub1 ->
-                                sub1.forEach { sub1Item ->
-                                    if (sub1Item.id == p1.content.placeCategoryId) {
-                                        category.text = sub1Item.name
-                                        return@forEach
-                                    } else {
-                                        it.subCategories?.let { sub2 ->
-                                            sub2.forEach { sub2Item ->
-                                                if (sub2Item.id == p1.content.placeCategoryId)
-                                                {
-                                                    category.text = sub2Item.name
-                                                    return@forEach
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                    }
-
                     dialog.findViewById(R.id.set_departure).setOnClickListener {
                         if (container?.visibility == View.INVISIBLE) {
                             container.visibility = View.VISIBLE
                         }
                         departureText?.text = p1.content.name
                         startLocation = loc
-
                         routingButton?.isEnabled = (startLocation != null)
                         mBottomSheetDialog.dismiss()
-
                     }
                     dialog.findViewById(R.id.set_destination).setOnClickListener {
                         if (container?.visibility == View.INVISIBLE) {
@@ -247,10 +213,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 mapFragment.getVenueController(it).useVenueZoom(true)
             }
-
-
-
-
         }
 
         override fun onVenueTapped(p0: Venue?, p1: Float, p2: Float) {
@@ -276,8 +238,6 @@ class MainActivity : AppCompatActivity() {
             Log.d(TAG, "Loading venue ID ${venue.id} has been completed")
         }
     }
-
-
 
     val mVenueServiceListener: VenueService.VenueServiceListener =
             object: VenueService.VenueServiceListener {
@@ -315,7 +275,6 @@ class MainActivity : AppCompatActivity() {
 
                     }
                 }
-
                 override fun onGetVenueCompleted(p0: Venue?) {
 
                 }
@@ -326,7 +285,7 @@ class MainActivity : AppCompatActivity() {
                 override fun onLongPressEvent(p0: PointF?): Boolean {
                     val coordinate:GeoCoordinate = map.pixelToGeo(p0)
                     Log.d(TAG, "Long press")
-//                    Log.d(TAG, (map.getSelectedObjectsNearby(p0).size > 0).toString())
+                    Log.d(TAG, (map.getSelectedObjectsNearby(p0).size > 0).toString())
 
 //                    val request:HereRequest = HereRequest()
 //                    request.connectivity = Request.Connectivity.DEFAULT
@@ -407,17 +366,17 @@ class MainActivity : AppCompatActivity() {
                     return false
                 }
                 override fun onTapEvent(p0: PointF?): Boolean {
-                    p0?.let {
-                        val coordinate = map.pixelToGeo(it)
-                        map.getSelectedObjectsNearby(it)
-                                .forEach {
-                                    Log.d(TAG, "BaseType: ${it.baseType}")
-                                    if (it is SpatialObject) {
-                                        Log.d(TAG, "Spatial Object")
-                                    }
-
-                                }
-                    }
+//                    p0?.let {
+//                        val coordinate = map.pixelToGeo(it)
+//                        map.getSelectedObjectsNearby(it)
+//                                .forEach {
+//                                    Log.d(TAG, "BaseType: ${it.baseType}")
+//                                    if (it is SpatialObject) {
+//                                        Log.d(TAG, "Spatial Object")
+//                                    }
+//
+//                                }
+//                    }
                     return super.onTapEvent(p0)
                 }
             }
@@ -533,12 +492,12 @@ class MainActivity : AppCompatActivity() {
             return
         }
         savedInstanceState?.let {
-            var centerCoord:GeoCoordinate = GeoCoordinate(
-                    it.getDouble("map_latitude") ?: Double.NaN,
-                    it.getDouble("map_longitude") ?: Double.NaN)
-            map.orientation = it.getFloat("map_orientation") ?: Float.NaN
-            map.tilt = it.getFloat("map_tilt") ?: Float.NaN
-            map.zoomLevel = it.getDouble("map_zoomlevel") ?: 0.0
+            val centerCoord:GeoCoordinate = GeoCoordinate(
+                    it.getDouble("map_latitude",Double.NaN ),
+                    it.getDouble("map_longitude", Double.NaN))
+            map.orientation = it.getFloat("map_orientation", Float.NaN)
+            map.tilt = it.getFloat("map_tilt", Float.NaN)
+            map.zoomLevel = it.getDouble("map_zoomlevel", Double.NaN)
             map.setCenter(centerCoord, Map.Animation.NONE)
             it.getString("map_venue_id")?.let { venueId ->
                 mapFragment.run {
@@ -632,5 +591,34 @@ class MainActivity : AppCompatActivity() {
             mapFragment.routingController
                     ?.calculateCombinedRoute(startLocation, endLocation, routeOption)
         }
+    }
+
+    fun setPlaceDialog(poiName: String,
+                       poiAddress: String,
+                       poiCategory: String,
+                       poiPhone: String): Unit {
+        mBottomSheetDialog.also { dialog ->
+            val name = dialog.findViewById(R.id.poi_name) as TextView
+            val address = dialog.findViewById(R.id.poi_address) as TextView
+            val category = dialog.findViewById(R.id.poi_category) as TextView
+            val phone = dialog.findViewById(R.id.poi_phone_number) as TextView
+
+            name.text = poiName
+            address.text = poiAddress
+            category.text = poiCategory
+            phone.text = poiPhone
+        }
+    }
+
+    fun convertPlaceCategoryIdToName (catList: List<Category>?,placeCategoryId: String) : String {
+        var catName: String = ""
+        catList?.forEach  {
+            if (it.id == placeCategoryId) {
+                catName = it.name
+            } else {
+                catName = convertPlaceCategoryIdToName(it.subCategories, placeCategoryId)
+            }
+        }
+        return catName
     }
 }
