@@ -30,10 +30,11 @@ import com.here.android.mpa.mapping.Map
 import com.here.android.mpa.routing.RouteOptions
 import com.here.android.mpa.routing.UMRouter
 import com.here.android.mpa.search.*
+import com.here.android.mpa.search.Location
 import com.here.android.mpa.venues3d.*
 import com.here.android.mpa.venues3d.Space
 import java.lang.ref.WeakReference
-
+import java.util.*
 
 
 class MainActivity : AppCompatActivity() {
@@ -283,89 +284,83 @@ class MainActivity : AppCompatActivity() {
     val mGestureListener: MapGesture.OnGestureListener.OnGestureListenerAdapter =
             object: MapGesture.OnGestureListener.OnGestureListenerAdapter() {
                 override fun onLongPressEvent(p0: PointF?): Boolean {
-                    val coordinate:GeoCoordinate = map.pixelToGeo(p0)
                     Log.d(TAG, "Long press")
-                    Log.d(TAG, (map.getSelectedObjectsNearby(p0).size > 0).toString())
-
-//                    val request:HereRequest = HereRequest()
-//                    request.connectivity = Request.Connectivity.DEFAULT
-//                    request.collectionSize = 20
-//                    request.setSearchCenter(coordinate)
-//                    request.execute()
-
-//                    val mapObjs :List<ViewObject> = map.getSelectedObjectsNearby(p0)
-//                    if (mapObjs.isNotEmpty()) {
-//                        mapObjs
-//                                .filterIsInstance<MapProxyObject>()
-//                                .forEach {
-//                                    when(it.type) {
-//                                        MapProxyObject.Type.MAP_CARTO_MARKER -> {
-//                                            (it as MapCartoMarker).location.info.let { locInfo ->
-//                                                val name:String? =
-//                                                        locInfo.getField(LocationInfo.Field.PLACE_NAME)
-//                                            }
-//
-//
-//                                        }
-//
-//                                    }
-//                                }
-//
-//                    }
+                    p0?.let {
+                        if (mapFragment.selectedVenue == null) {
+                            if (map.getSelectedObjects(it).size <= 0) {
+                                val coord = map.pixelToGeo(it)
+                                Log.d(TAG, "1")
+                                ReverseGeocodeRequest2(coord, Locale.getDefault())
+                                        .execute(mGeocodeListener)
 
 
+
+                            }
+
+                        }
+                    }
                     return false
                 }
 
                 override fun onMapObjectsSelected(p0: MutableList<ViewObject>?): Boolean {
                     Log.d(TAG, "Selected")
-                    val mapObjs = p0.orEmpty()
-                    var name:String?
-                    var address:String?
-                    var phoneNum:String?
-                    var category:String?
-                    var coordinate:GeoCoordinate?
-                    if (mapObjs.isNotEmpty()) {
-                        mapObjs.filterIsInstance<MapProxyObject>()
-                                .forEach {
-                                    when (it.type) {
-                                        MapProxyObject.Type.MAP_CARTO_MARKER -> {
-                                            (it as MapCartoMarker).run {
-                                                coordinate = location.coordinate
-                                                location.info.run {
-                                                    name = getField(LocationInfo.Field.PLACE_NAME)
-                                                    category = getField(LocationInfo.Field.PLACE_CATEGORY)
-                                                    phoneNum = getField(LocationInfo.Field.PLACE_PHONE_NUMBER)
-                                                    address = getField(LocationInfo.Field.ADDR_COUNTRY_NAME) +
-                                                            " " + getField(LocationInfo.Field.ADDR_CITY_NAME) +
-                                                            " " + getField(LocationInfo.Field.ADDR_COUNTY_NAME) +
-                                                            " " + getField(LocationInfo.Field.ADDR_DISTRICT_NAME) +
-                                                            " " + getField(LocationInfo.Field.ADDR_HOUSE_NUMBER) +
-                                                            " " + getField(LocationInfo.Field.ADDR_BUILDING_NAME) +
-                                                            " " + getField(LocationInfo.Field.ADDR_POSTAL_CODE)
-
-                                                    Log.d(TAG, "Name: " + name)
-                                                    Log.d(TAG, "Category: " + category)
-                                                    Log.d(TAG, "Phone Number: " + phoneNum)
-                                                    Log.d(TAG, "Address: " + address)
+                    val container:LinearLayout?
+                            = mActivity.findViewById(R.id.route_container) as LinearLayout
+                    val departureText: TextView?
+                            = mActivity.findViewById(R.id.departure_name) as TextView
+                    val destinationText: TextView?
+                            = mActivity.findViewById(R.id.destination_name) as TextView
+                    val routingButton: Button?
+                            = mActivity.findViewById(R.id.calculate_button) as Button
+                    p0?.let { list ->
+                        if (!list.isEmpty()) {
+                            list[0].also {
+                                if (ViewObject.Type.PROXY_OBJECT == it.baseType
+                                     && (it as MapProxyObject).type == MapProxyObject.Type.MAP_CARTO_MARKER) {
+                                    val loc = (it as MapCartoMarker).location
+                                    loc.info?.let { info ->
+                                        setPlaceDialog(
+                                                info.getField(LocationInfo.Field.PLACE_NAME),
+                                                getIntegratedAddress(info),
+                                                info.getField(LocationInfo.Field.PLACE_CATEGORY),
+                                                info.getField(LocationInfo.Field.PLACE_PHONE_NUMBER)
+                                        )
+                                        mBottomSheetDialog.run {
+                                            findViewById(R.id.set_departure).setOnClickListener {
+                                                if (container?.visibility == View.INVISIBLE) {
+                                                    container.visibility = View.VISIBLE
                                                 }
+                                                departureText?.text = info.getField(LocationInfo.Field.PLACE_NAME)
+                                                startLocation = OutdoorLocation(loc.coordinate)
+                                                routingButton?.isEnabled = (endLocation != null)
+                                                mBottomSheetDialog.dismiss()
                                             }
-                                        }  else  -> {
-                                        name = ""
-                                        category = ""
-                                        phoneNum = ""
-                                        address = ""
-                                        coordinate = null
-
+                                            findViewById(R.id.set_destination).setOnClickListener {
+                                                if (container?.visibility == View.INVISIBLE) {
+                                                    container.visibility = View.VISIBLE
+                                                }
+                                                destinationText?.text = info.getField(LocationInfo.Field.PLACE_NAME)
+                                                endLocation = OutdoorLocation(loc.coordinate)
+                                                routingButton?.isEnabled = (startLocation != null)
+                                                mBottomSheetDialog.dismiss()
+                                            }
+                                            show()
                                         }
+
                                     }
                                 }
-                    } else {
-                        Log.d(TAG, "mapObj Empty")
+                            }
+
+                        }
+
                     }
+
                     return false
                 }
                 override fun onTapEvent(p0: PointF?): Boolean {
+                    p0?.let {
+                        map.getSelectedObjects(it)
+                    }
 //                    p0?.let {
 //                        val coordinate = map.pixelToGeo(it)
 //                        map.getSelectedObjectsNearby(it)
@@ -414,8 +409,50 @@ class MainActivity : AppCompatActivity() {
         mapFragment.routingController?.showRoute(combinedRoute)
     }
 
+    val mGeocodeListener = ResultListener<Location> { location, errorCode ->
+        val coord = location.coordinate
+        val container:LinearLayout?
+                = mActivity.findViewById(R.id.route_container) as LinearLayout
+        val departureText: TextView?
+                = mActivity.findViewById(R.id.departure_name) as TextView
+        val destinationText: TextView?
+                = mActivity.findViewById(R.id.destination_name) as TextView
+        val routingButton: Button?
+                = mActivity.findViewById(R.id.calculate_button) as Button
+        if (errorCode == ErrorCode.NONE) {
+            Log.d(TAG, "2")
+            mBottomSheetDialog.run {
+                setPlaceDialog(
+                        coord.toString(),
+                        location.address.text,
+                        "",
+                        ""
+                )
+                findViewById(R.id.set_departure)
+                        .setOnClickListener {
+                            if (container?.visibility == View.INVISIBLE) {
+                                container.visibility = View.VISIBLE
+                            }
+                            departureText?.text = coord.toString()
+                            startLocation = OutdoorLocation(coord)
+                            routingButton?.isEnabled = (endLocation != null)
+                            mBottomSheetDialog.dismiss()
+                        }
+                findViewById(R.id.set_destination).setOnClickListener {
+                    if (container?.visibility == View.INVISIBLE) {
+                        container.visibility = View.VISIBLE
+                    }
+                    destinationText?.text = coord.toString()
+                    endLocation = OutdoorLocation(coord)
+                    routingButton?.isEnabled = (startLocation != null)
+                    mBottomSheetDialog.dismiss()
+                }
+                show()
 
+            }
 
+        }
+    }
 
 
     private lateinit var mBottomSheetDialog : Dialog
@@ -555,7 +592,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        if (mapFragment.isVenueLayerVisible) {
+        if (mapFragment.selectedVenue != null) {
             mapFragment.deselectVenue()
         } else {
             super.onBackPressed()
@@ -588,6 +625,7 @@ class MainActivity : AppCompatActivity() {
         routeOption.setRampsAllowed(true)
         if (startLocation != null && endLocation != null &&
                 startLocation?.isValid!! && endLocation?.isValid!!) {
+            Log.d(TAG, "Routing")
             mapFragment.routingController
                     ?.calculateCombinedRoute(startLocation, endLocation, routeOption)
         }
@@ -620,5 +658,21 @@ class MainActivity : AppCompatActivity() {
             }
         }
         return catName
+    }
+
+    fun getIntegratedAddress(info: LocationInfo): String {
+        val builder : StringBuilder = StringBuilder()
+        builder.append(info.getField(LocationInfo.Field.ADDR_HOUSE_NUMBER))
+        builder.append("\n")
+        builder.append(info.getField(LocationInfo.Field.ADDR_STREET_NAME))
+        builder.append(info.getField(LocationInfo.Field.ADDR_DISTRICT_NAME))
+        builder.append("\n")
+        builder.append(info.getField(LocationInfo.Field.ADDR_COUNTY_NAME))
+        builder.append(info.getField(LocationInfo.Field.ADDR_CITY_NAME))
+        builder.append("\n")
+        builder.append(info.getField(LocationInfo.Field.ADDR_STATE_CODE))
+        builder.append(info.getField(LocationInfo.Field.ADDR_COUNTRY_NAME))
+
+        return builder.toString()
     }
 }
