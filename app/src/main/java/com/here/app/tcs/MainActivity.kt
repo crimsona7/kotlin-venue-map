@@ -6,12 +6,14 @@
 package com.here.app.tcs
 
 import android.app.Dialog
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.PointF
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.PersistableBundle
+import android.support.design.widget.FloatingActionButton
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v4.view.MenuItemCompat
@@ -35,6 +37,7 @@ import com.here.android.mpa.venues3d.*
 import com.here.android.mpa.venues3d.Space
 import java.lang.ref.WeakReference
 import java.util.*
+import kotlinx.android.synthetic.main.activity_main.*
 
 
 class MainActivity : AppCompatActivity() {
@@ -43,6 +46,7 @@ class MainActivity : AppCompatActivity() {
     private val VENUES_ID_REF_NAME = com.here.android.mpa.search.Request.VENUES_ID_REFERENCE_NAME
     private val VENUE_ID_REF_NAME= com.here.android.mpa.search.Request.VENUES_VENUE_ID_REFERENCE_NAME
     private val REQUEST_CODE : Int = 48317
+    val REQUEST_CODE_SEARCH: Int = 33667
     private lateinit var mapFragment:VenueMapFragment
     private lateinit var map:Map
     private val mActivity = this
@@ -92,7 +96,7 @@ class MainActivity : AppCompatActivity() {
     // (Because there is only one callback method)
     val mEngineListener : OnEngineInitListener = OnEngineInitListener { error ->
         if (error != OnEngineInitListener.Error.NONE) {
-            var errorMessage: String = error.details
+            val errorMessage: String = error.details
             Log.e(TAG, "Error on init: $errorMessage")
             finish()
         } else {
@@ -141,14 +145,6 @@ class MainActivity : AppCompatActivity() {
             if (p0 != null && p1 != null) {
                 val vnControl = mapFragment.getVenueController(p0)
                 val loc = SpaceLocation(p1, vnControl)
-                val container:LinearLayout?
-                        = mActivity.findViewById(R.id.route_container) as LinearLayout
-                val departureText: TextView?
-                        = mActivity.findViewById(R.id.departure_name) as TextView
-                val destinationText: TextView?
-                        = mActivity.findViewById(R.id.destination_name) as TextView
-                val routingButton: Button?
-                        = mActivity.findViewById(R.id.calculate_button) as Button
                 mBottomSheetDialog.also {  dialog ->
                     setPlaceDialog(p1.content.name,
                                     p1.content.address.toString(),
@@ -156,22 +152,22 @@ class MainActivity : AppCompatActivity() {
                                     p1.content.phoneNumber)
                     Log.d(TAG, "Cat ID: ${p1.content.placeCategoryId}")
                     dialog.findViewById(R.id.set_departure).setOnClickListener {
-                        if (container?.visibility == View.INVISIBLE) {
-                            container.visibility = View.VISIBLE
+                        if (route_container.visibility == View.INVISIBLE) {
+                            route_container.visibility = View.VISIBLE
                         }
-                        departureText?.text = p1.content.name
+                        departure_name.text = p1.content.name
                         startLocation = loc
-                        routingButton?.isEnabled = (startLocation != null)
+                        calculate_button.isEnabled = (startLocation != null)
                         mBottomSheetDialog.dismiss()
                     }
                     dialog.findViewById(R.id.set_destination).setOnClickListener {
-                        if (container?.visibility == View.INVISIBLE) {
-                            container.visibility = View.VISIBLE
+                        if (route_container.visibility == View.INVISIBLE) {
+                            route_container.visibility = View.VISIBLE
                         }
-                        destinationText?.text = p1.content.name
+                        destination_name.text = p1.content.name
                         endLocation = loc
 
-                        routingButton?.isEnabled = (endLocation != null)
+                        calculate_button.isEnabled = (endLocation != null)
                         mBottomSheetDialog.dismiss()
 
                     }
@@ -290,7 +286,7 @@ class MainActivity : AppCompatActivity() {
                             if (map.getSelectedObjects(it).size <= 0) {
                                 val coord = map.pixelToGeo(it)
                                 Log.d(TAG, "1")
-                                ReverseGeocodeRequest2(coord, Locale.getDefault())
+                                ReverseGeocodeRequest2(coord, Locale.ENGLISH)
                                         .execute(mGeocodeListener)
 
 
@@ -304,14 +300,6 @@ class MainActivity : AppCompatActivity() {
 
                 override fun onMapObjectsSelected(p0: MutableList<ViewObject>?): Boolean {
                     Log.d(TAG, "Selected")
-                    val container:LinearLayout?
-                            = mActivity.findViewById(R.id.route_container) as LinearLayout
-                    val departureText: TextView?
-                            = mActivity.findViewById(R.id.departure_name) as TextView
-                    val destinationText: TextView?
-                            = mActivity.findViewById(R.id.destination_name) as TextView
-                    val routingButton: Button?
-                            = mActivity.findViewById(R.id.calculate_button) as Button
                     p0?.let { list ->
                         if (!list.isEmpty()) {
                             list[0].also {
@@ -327,21 +315,21 @@ class MainActivity : AppCompatActivity() {
                                         )
                                         mBottomSheetDialog.run {
                                             findViewById(R.id.set_departure).setOnClickListener {
-                                                if (container?.visibility == View.INVISIBLE) {
-                                                    container.visibility = View.VISIBLE
+                                                if (route_container.visibility == View.INVISIBLE) {
+                                                    route_container.visibility = View.VISIBLE
                                                 }
-                                                departureText?.text = info.getField(LocationInfo.Field.PLACE_NAME)
+                                                departure_name.text = info.getField(LocationInfo.Field.PLACE_NAME)
                                                 startLocation = OutdoorLocation(loc.coordinate)
-                                                routingButton?.isEnabled = (endLocation != null)
+                                                calculate_button.isEnabled = (endLocation != null)
                                                 mBottomSheetDialog.dismiss()
                                             }
                                             findViewById(R.id.set_destination).setOnClickListener {
-                                                if (container?.visibility == View.INVISIBLE) {
-                                                    container.visibility = View.VISIBLE
+                                                if (route_container.visibility == View.INVISIBLE) {
+                                                    route_container.visibility = View.VISIBLE
                                                 }
-                                                destinationText?.text = info.getField(LocationInfo.Field.PLACE_NAME)
+                                                departure_name.text = info.getField(LocationInfo.Field.PLACE_NAME)
                                                 endLocation = OutdoorLocation(loc.coordinate)
-                                                routingButton?.isEnabled = (startLocation != null)
+                                                calculate_button.isEnabled = (startLocation != null)
                                                 mBottomSheetDialog.dismiss()
                                             }
                                             show()
@@ -411,14 +399,6 @@ class MainActivity : AppCompatActivity() {
 
     val mGeocodeListener = ResultListener<Location> { location, errorCode ->
         val coord = location.coordinate
-        val container:LinearLayout?
-                = mActivity.findViewById(R.id.route_container) as LinearLayout
-        val departureText: TextView?
-                = mActivity.findViewById(R.id.departure_name) as TextView
-        val destinationText: TextView?
-                = mActivity.findViewById(R.id.destination_name) as TextView
-        val routingButton: Button?
-                = mActivity.findViewById(R.id.calculate_button) as Button
         if (errorCode == ErrorCode.NONE) {
             Log.d(TAG, "2")
             mBottomSheetDialog.run {
@@ -430,21 +410,21 @@ class MainActivity : AppCompatActivity() {
                 )
                 findViewById(R.id.set_departure)
                         .setOnClickListener {
-                            if (container?.visibility == View.INVISIBLE) {
-                                container.visibility = View.VISIBLE
+                            if (route_container.visibility == View.INVISIBLE) {
+                                route_container.visibility = View.VISIBLE
                             }
-                            departureText?.text = coord.toString()
+                            departure_name.text = coord.toString()
                             startLocation = OutdoorLocation(coord)
-                            routingButton?.isEnabled = (endLocation != null)
+                            calculate_button.isEnabled = (endLocation != null)
                             mBottomSheetDialog.dismiss()
                         }
                 findViewById(R.id.set_destination).setOnClickListener {
-                    if (container?.visibility == View.INVISIBLE) {
-                        container.visibility = View.VISIBLE
+                    if (route_container.visibility == View.INVISIBLE) {
+                        route_container.visibility = View.VISIBLE
                     }
-                    destinationText?.text = coord.toString()
+                    destination_name.text = coord.toString()
                     endLocation = OutdoorLocation(coord)
-                    routingButton?.isEnabled = (startLocation != null)
+                    calculate_button.isEnabled = (startLocation != null)
                     mBottomSheetDialog.dismiss()
                 }
                 show()
@@ -475,14 +455,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        // MapFragment object is not obtainable by layout property,
-        // instead we need to call findFragmentById of Android. (~API 25)
         mapFragment = (fragmentManager.findFragmentById(R.id.map_fragment)) as VenueMapFragment
-//        val bundle: Bundle =
-//                packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA).metaData
-//        Log.d(TAG, "App ID: ${bundle.getString("com.here.android.maps.appid")}")
-//        Log.d(TAG, "App Token: ${bundle.getString("com.here.android.maps.apptoken")}")
-//        Log.d(TAG, "App License key: ${bundle.getString("com.here.android.maps.license.key")}")
         mBottomSheetDialog = Dialog(this, R.style.MaterialDialogSheet).apply {
             setCancelable(true)
             window.setLayout(LinearLayout.LayoutParams.MATCH_PARENT,
@@ -492,8 +465,18 @@ class MainActivity : AppCompatActivity() {
             findViewById(R.id.close_detail_window).setOnClickListener {
                 mBottomSheetDialog.dismiss()
             }
-
         }
+        search_activity_button.setOnClickListener {
+            if (MapEngine.isInitialized()) {
+                val searchActivityIntent = Intent().run {
+                    action = "com.here.chriswon.LAUNCH_SEARCH_ACTIVITY"
+                    putExtra("map_center_lat", map.center.latitude)
+                    putExtra("map_center_lon", map.center.longitude)
+                }
+                startActivityForResult(searchActivityIntent, REQUEST_CODE_SEARCH)
+            }
+        }
+
         requestMissingPermissions()
     }
 
@@ -674,5 +657,24 @@ class MainActivity : AppCompatActivity() {
         builder.append(info.getField(LocationInfo.Field.ADDR_COUNTRY_NAME))
 
         return builder.toString()
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        when (requestCode) {
+            REQUEST_CODE_SEARCH -> {
+                data?.let {
+                    if (resultCode == RESULT_OK) {
+                        val placeCoordinate = GeoCoordinate(Double.NaN, Double.NaN)
+                        placeCoordinate.latitude = it.extras.getDouble("places_lat", Double.NaN)
+                        placeCoordinate.longitude = it.extras.getDouble("places_lon", Double.NaN)
+                        val placeId = it.extras.getString("places_id", "")
+                        val placeName = it.extras.getString("places_name", "")
+                        val placeAddress = it.extras.getString("places_address", "")
+                        val placeCategory = it.extras.getString("places_category", "")
+                        val placePhone = it.extras.getString("places_phone", "")
+                    }
+                }
+            }
+        }
     }
 }
