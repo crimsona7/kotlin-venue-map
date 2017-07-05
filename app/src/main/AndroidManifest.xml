@@ -38,8 +38,10 @@
         <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.here.tcs.chriswon.PICK_LOCATION" />
             </intent-filter>
         </activity>
 
@@ -61,6 +63,7 @@
         <activity android:name=".PlacesListActivity">
             <intent-filter>
                 <action android:name="com.here.chriswon.LAUNCH_SEARCH_ACTIVITY" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
     </application>

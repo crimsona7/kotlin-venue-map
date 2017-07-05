@@ -38,15 +38,19 @@ import com.here.android.mpa.venues3d.Space
 import java.lang.ref.WeakReference
 import java.util.*
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlin.collections.ArrayList
+
+
 
 
 class MainActivity : AppCompatActivity() {
-    private val TAG: String = "KotlinDemo_MainActivity"
-    private val PVID_ID_REF_NAME = com.here.android.mpa.search.Request.PVID_ID_REFERENCE_NAME
-    private val VENUES_ID_REF_NAME = com.here.android.mpa.search.Request.VENUES_ID_REFERENCE_NAME
-    private val VENUE_ID_REF_NAME= com.here.android.mpa.search.Request.VENUES_VENUE_ID_REFERENCE_NAME
-    private val REQUEST_CODE : Int = 48317
     val REQUEST_CODE_SEARCH: Int = 33667
+    private val TAG: String = "KotlinDemo_MainActivity"
+    val PVID_ID_REF_NAME = com.here.android.mpa.search.Request.PVID_ID_REFERENCE_NAME
+    val VENUES_ID_REF_NAME = com.here.android.mpa.search.Request.VENUES_ID_REFERENCE_NAME
+    val VENUE_ID_REF_NAME= com.here.android.mpa.search.Request.VENUES_VENUE_ID_REFERENCE_NAME
+    val BUILDING_ID_REF_NAME = com.here.android.mpa.search.Request.BUILDING_ID_REFERENCE_NAME
+    private val REQUEST_CODE : Int = 48317
     private lateinit var mapFragment:VenueMapFragment
     private lateinit var map:Map
     private val mActivity = this
@@ -434,6 +438,42 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    val mPlaceRequestListener = ResultListener<Place> { place, errorCode ->
+        if (errorCode != ErrorCode.NONE) {
+            return@ResultListener
+        }
+        setPlaceDialog(
+                poiName = place.name,
+                poiAddress = place.location.address.toString(),
+                poiCategory = place.categories.joinToString {   category ->
+                    return@joinToString category.name   },
+                poiPhone = place.contacts.joinToString { contactDetail ->
+                    return@joinToString "${contactDetail.type}: ${contactDetail.value}"
+                })
+        with(mBottomSheetDialog) {
+            this.findViewById(R.id.set_departure).setOnClickListener {
+                if (route_container.visibility == View.INVISIBLE) {
+                    route_container.visibility = View.VISIBLE
+                }
+                departure_name.text = place.name
+                startLocation = OutdoorLocation(place.location.coordinate)
+                calculate_button.isEnabled = (startLocation != null)
+                mBottomSheetDialog.dismiss()
+            }
+            this.findViewById(R.id.set_destination).setOnClickListener {
+                if (route_container.visibility == View.INVISIBLE) {
+                    route_container.visibility = View.VISIBLE
+                }
+                destination_name.text = place.name
+                endLocation = OutdoorLocation(place.location.coordinate)
+
+                calculate_button.isEnabled = (endLocation != null)
+                mBottomSheetDialog.dismiss()
+
+            }
+        }
+    }
+
 
     private lateinit var mBottomSheetDialog : Dialog
 
@@ -664,14 +704,44 @@ class MainActivity : AppCompatActivity() {
             REQUEST_CODE_SEARCH -> {
                 data?.let {
                     if (resultCode == RESULT_OK) {
-                        val placeCoordinate = GeoCoordinate(Double.NaN, Double.NaN)
-                        placeCoordinate.latitude = it.extras.getDouble("places_lat", Double.NaN)
-                        placeCoordinate.longitude = it.extras.getDouble("places_lon", Double.NaN)
                         val placeId = it.extras.getString("places_id", "")
-                        val placeName = it.extras.getString("places_name", "")
-                        val placeAddress = it.extras.getString("places_address", "")
-                        val placeCategory = it.extras.getString("places_category", "")
-                        val placePhone = it.extras.getString("places_phone", "")
+                        val placePVID = Pair<String, String>(PVID_ID_REF_NAME,
+                                it.extras.getString("places_pvid", ""))
+
+                        val placeBuildingId = Pair<String, String>(BUILDING_ID_REF_NAME,
+                                it.extras.getString("places_building_id", ""))
+                        val placeFacebookId = Pair <String, String>("facebook",
+                                it.extras.getString("places_facebook_id", ""))
+                        val placeYelpId = Pair<String, String>("yelp",
+                                it.extras.getString("places_yelp_id", ""))
+                        val placeTAId = Pair<String, String>("tripadvisor",
+                                it.extras.getString("places_tripadvisor_id", ""))
+                        val placeOTId = Pair<String, String>("opentable",
+                                it.extras.getString("places_opentable_id", ""))
+                        val placeVenueId = Pair<String, String>(VENUE_ID_REF_NAME,
+                                it.extras.getString("places_venue_id", ""))
+                        if (intent.action == "com.here.tcs.chriswon.PICK_LOCATION") {
+                            if (placeVenueId.second.isNotEmpty()) {
+                                mapFragment.selectVenueAsync(placeVenueId.second)
+                            } else {
+                                val placeRequest: PlaceRequest =
+                                if (placePVID.second.isNotEmpty()) {
+                                    PlaceRequest(placePVID.first, placePVID.second)
+                                } else if (placeBuildingId.second.isNotEmpty()) {
+                                    PlaceRequest(placeBuildingId.first, placeBuildingId.second)
+                                } else if (placeFacebookId.second.isNotEmpty()){
+                                    PlaceRequest(placeFacebookId.first, placeFacebookId.second)
+                                } else if (placeYelpId.second.isNotEmpty()){
+                                    PlaceRequest(placeYelpId.first, placeYelpId.second)
+                                } else if (placeTAId.second.isNotEmpty()){
+                                    PlaceRequest(placeTAId.first, placeTAId.second)
+                                } else  {
+                                    PlaceRequest(placeOTId.first, placeOTId.second)
+                                }
+                                placeRequest.execute(mPlaceRequestListener)
+
+                            }
+                        }
                     }
                 }
             }

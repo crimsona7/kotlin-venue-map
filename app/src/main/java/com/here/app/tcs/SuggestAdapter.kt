@@ -14,15 +14,9 @@ import java.util.zip.Inflater
  * Created by chwon on 6/22/2017.
  */
 
-class SuggestAdapter: BaseAdapter, Filterable {
-    var mList: MutableList<AutoSuggest>
-    val mCallingActivity: Activity
-
-    constructor(list:MutableList<AutoSuggest>, activity: Activity) : super() {
-        mList = list
-        mCallingActivity = activity
-
-    }
+class SuggestAdapter(list: MutableList<AutoSuggest>, activity: Activity) : BaseAdapter(), Filterable {
+    var mList: MutableList<AutoSuggest> = list
+    val mCallingActivity: Activity = activity
 
     override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
         val itemView = LayoutInflater
@@ -51,8 +45,9 @@ class SuggestAdapter: BaseAdapter, Filterable {
         var filter:Filter = object:Filter(){
             override fun performFiltering(constraint: CharSequence?): FilterResults {
                 val result = FilterResults()
-                result.values= mList.subList(0, 29)
-                result.count = 30
+
+                result.values= if (mList.size > 10)  mList  else mList.subList(0, 10)
+                result.count = 10
                 return result
             }
 

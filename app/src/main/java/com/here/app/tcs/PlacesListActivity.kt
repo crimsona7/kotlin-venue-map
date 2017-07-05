@@ -1,13 +1,13 @@
 package com.here.app.tcs
 
+import android.app.Activity
+import android.content.Intent
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.text.Editable
+import android.text.SpannableStringBuilder
 import android.text.TextWatcher
 import android.util.Log
-import android.view.KeyEvent
-import android.view.View
-import android.view.inputmethod.EditorInfo
 import android.widget.*
 import com.here.android.mpa.common.GeoCoordinate
 import com.here.android.mpa.search.*
@@ -15,25 +15,17 @@ import kotlinx.android.synthetic.main.activity_places_list.*
 import java.util.*
 
 class PlacesListActivity() : AppCompatActivity() {
+    private val PVID_ID_REF_NAME = com.here.android.mpa.search.Request.PVID_ID_REFERENCE_NAME
+    private val VENUES_ID_REF_NAME = com.here.android.mpa.search.Request.VENUES_ID_REFERENCE_NAME
+    private val VENUE_ID_REF_NAME= com.here.android.mpa.search.Request.VENUES_VENUE_ID_REFERENCE_NAME
+    private val BUILDING_ID_REF_NAME = com.here.android.mpa.search.Request.BUILDING_ID_REFERENCE_NAME
     private val TAG: String = "PlacesListActivity"
     val mTextWatcher = object:TextWatcher {
         override fun afterTextChanged(s: Editable?) {
             s?.let {
                 if (it.isNotEmpty()) {
                     val request = TextAutoSuggestionRequest(it.toString())
-                    if (!coord_lat.text.isNullOrEmpty() && !coord_lon.text.isNullOrEmpty()) {
-                        val lat = coord_lat.text.toString().toDoubleOrNull()
-                        val lon = coord_lon.text.toString().toDoubleOrNull()
-                        if (lat != null && lon != null) {
-                            request.setSearchCenter(GeoCoordinate(lat, lon))
-                        }
-                    } else if (mapCenter != null) {
-                        request.setSearchCenter(mapCenter)
-                    } else {
-                        // Default: Chicago
-                        request.setSearchCenter(GeoCoordinate(41.88415,-87.63189))
-                    }
-
+                    request.setSearchCenter(center.invoke())
                     request.execute(mSuggestListener)
                 }
             }
@@ -67,10 +59,107 @@ class PlacesListActivity() : AppCompatActivity() {
 
     val mSuggestClickListener = AdapterView.OnItemClickListener { parent, view, position, id ->
         mSuggestAdapter?.getItem(position)?.let {
-            var request :DiscoveryRequest? = null
+            val searchCenter = center.invoke()
+            when (search_type_spinner.selectedItem) {
+                "Search" -> {
+                    SearchRequest(it.title).run {
+                        addReference(PVID_ID_REF_NAME)
+                        addReference(VENUES_ID_REF_NAME)
+                        addReference(VENUE_ID_REF_NAME)
+                        addReference(BUILDING_ID_REF_NAME)
+                        addReference("facebook")
+                        addReference("yelp")
+                        addReference("tripadvisor")
+                        addReference("opentable")
+                        collectionSize = 30
+                        setSearchCenter(searchCenter)
+                    }.execute(mDiscoveryResultListener)
+                }
+                "Explore" -> {
+                    ExploreRequest().run {
+                        addReference(PVID_ID_REF_NAME)
+                        addReference(VENUES_ID_REF_NAME)
+                        addReference(VENUE_ID_REF_NAME)
+                        addReference(BUILDING_ID_REF_NAME)
+                        addReference("facebook")
+                        addReference("yelp")
+                        addReference("tripadvisor")
+                        addReference("opentable")
+                        collectionSize = 30
+                        setSearchCenter(searchCenter)
+                        // TODO: Add category filter here
+                    }
+                }
+                "Around" -> {
+                    AroundRequest().run {
+                        addReference(PVID_ID_REF_NAME)
+                        addReference(VENUES_ID_REF_NAME)
+                        addReference(VENUE_ID_REF_NAME)
+                        addReference(BUILDING_ID_REF_NAME)
+                        addReference("facebook")
+                        addReference("yelp")
+                        addReference("tripadvisor")
+                        addReference("opentable")
+                        collectionSize = 30
+                        setSearchCenter(searchCenter)
+                        // TODO: Add category filter here
+                    }
+                }
+                "Here" -> {
+                    HereRequest().run {
+                        addReference(PVID_ID_REF_NAME)
+                        addReference(VENUES_ID_REF_NAME)
+                        addReference(VENUE_ID_REF_NAME)
+                        addReference(BUILDING_ID_REF_NAME)
+                        addReference("facebook")
+                        addReference("yelp")
+                        addReference("tripadvisor")
+                        addReference("opentable")
+                        collectionSize = 30
+                        setSearchCenter(searchCenter)
+                        // TODO: Add category filter here
+                    }
+
+                }
+                else -> {
+
+                }
+
+            }
 
         }
     }
+
+    val mDiscoveryResultListener = ResultListener<DiscoveryResultPage> { page, error ->
+        if (error != ErrorCode.NONE) {
+            Log.e(TAG, "Error while retrieving discovery result.\n${error.name}")
+            return@ResultListener
+        }
+        search_result_list.adapter = PlaceListAdapter(this, page.placeLinks, mOnItemClickListener)
+    }
+
+    val mOnItemClickListener = object : PlaceListAdapter.OnItemClickListener {
+        override fun onItemClick(link: PlaceLink?) {
+            link?.let {
+                Intent().run {
+                    action = "com.here.tcs.chriswon.PICK_LOCATION"
+                    putExtra("places_id", link.id)
+                    putExtra("places_pvid", link.getReference(PVID_ID_REF_NAME))
+                    putExtra("places_building_id", link.getReference(BUILDING_ID_REF_NAME))
+                    putExtra("places_facebook_id", link.getReference("facebook"))
+                    putExtra("places_yelp_id", link.getReference("yelp"))
+                    putExtra("places_tripadvisor_id", link.getReference("tripadvisor"))
+                    putExtra("places_opentable_id", link.getReference("opentable"))
+//                    putExtra("places_venues_id", link.getReference(VENUES_ID_REF_NAME))
+                    putExtra("places_venue_id", link.getReference(VENUE_ID_REF_NAME))
+                    setResult(Activity.RESULT_OK, intent)
+                    finish()
+                }
+            }
+        }
+    }
+
+
 
     var mSuggestAdapter : SuggestAdapter? = null
     var mapCenter: GeoCoordinate? = null
@@ -99,5 +188,24 @@ class PlacesListActivity() : AppCompatActivity() {
                     ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, localeNameList)
         }
 
+        category_spinner.also {
+            val categoryList = Category.globalCategories()
+        }
+
+    }
+
+    val center = fun () : GeoCoordinate {
+        if (!coord_lat.text.isNullOrEmpty() && !coord_lon.text.isNullOrEmpty()) {
+            val lat = coord_lat.text.toString().toDoubleOrNull()
+            val lon = coord_lon.text.toString().toDoubleOrNull()
+            if (lat != null && lon != null) {
+                return GeoCoordinate(lat, lon)
+            }
+        }
+        return if (mapCenter != null) {
+            mapCenter as GeoCoordinate
+        } else {
+            GeoCoordinate(41.88415, -87.63189)
+        }
     }
 }

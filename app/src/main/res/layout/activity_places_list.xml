@@ -51,15 +51,21 @@
             android:layout_height="wrap_content"
             android:id="@+id/search_type_spinner"
             android:layout_gravity="center"
-            android:layout_weight="0.3">
+            android:layout_weight="0.3"
+            android:entries="@array/search_types">
         </Spinner>
         <Spinner
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:id="@+id/locale_spinner"
             android:layout_weight="0.3"
-            android:layout_gravity="center">
-        </Spinner>
+            android:layout_gravity="center" />
+        <Spinner
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:id="@+id/category_spinner"
+            android:layout_weight="0.3"
+            android:layout_gravity="center" />
         <android.support.v7.widget.AppCompatEditText
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -70,11 +76,6 @@
             android:layout_weight="0.3"
             android:layout_height="wrap_content"
             android:id="@+id/coord_lon" />
-        <android.support.v7.widget.AppCompatEditText
-            android:layout_width="0dp"
-            android:layout_weight="0.3"
-            android:layout_height="wrap_content"
-            android:id="@+id/search_radius" />
     </LinearLayout>
 
     <android.support.v7.widget.RecyclerView
