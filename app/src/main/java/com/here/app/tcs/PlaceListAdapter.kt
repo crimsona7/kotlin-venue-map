@@ -56,8 +56,11 @@ class PlaceListAdapter(val context: Context,
             placeResults[position].apply {
                 if (checkShowItem(this)) {
                     listItem.placeName.text = title
+
+                    Log.d("List", "Category is ${category.name}")
                     listItem.placeCategory.text = category.name
-                    getBitmapFromUrl(category.iconUrl)?.let {
+                    Log.d("List", "Icon URL is ${iconUrl}")
+                    getBitmapFromUrl(iconUrl)?.let {
                         listItem.placeIcon.setImageBitmap(it)
                     }
                     listItem.itemView.setOnClickListener {
@@ -71,7 +74,9 @@ class PlaceListAdapter(val context: Context,
     private fun getBitmapFromUrl(urlString: String) : Bitmap? {
         var bitMap: Bitmap? = null
         try {
+            Log.d("Bitmap", "URL is $urlString")
             val url : URL = URL(urlString)
+            //TO-DO: Fix the connection run on Runnable thread
             url.openConnection()?.let {
                 (it as HttpURLConnection).doInput = true
                 it.connect()

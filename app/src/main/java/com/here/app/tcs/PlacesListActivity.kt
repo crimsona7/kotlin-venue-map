@@ -4,6 +4,9 @@ import android.app.Activity
 import android.content.Intent
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.support.v7.widget.DividerItemDecoration
+import android.support.v7.widget.LinearLayoutManager
+import android.support.v7.widget.RecyclerView
 import android.text.Editable
 import android.text.SpannableStringBuilder
 import android.text.TextWatcher
@@ -13,6 +16,7 @@ import com.here.android.mpa.common.GeoCoordinate
 import com.here.android.mpa.search.*
 import kotlinx.android.synthetic.main.activity_places_list.*
 import java.util.*
+
 
 class PlacesListActivity() : AppCompatActivity() {
     private val PVID_ID_REF_NAME = com.here.android.mpa.search.Request.PVID_ID_REFERENCE_NAME
@@ -45,24 +49,29 @@ class PlacesListActivity() : AppCompatActivity() {
             Log.e(TAG, "Error on ResultListener: ${errorCode.name}")
             return@ResultListener
         }
-        list.forEach {
-            if (it.type != AutoSuggest.Type.PLACE) {
-                list.remove(it)
+        val resultList = list.filter {
+            autoSuggest ->
+            if (autoSuggest.type == AutoSuggest.Type.PLACE) {
+                return@filter true
             }
+            return@filter false
         }
-        mSuggestAdapter = SuggestAdapter(list,  this)
+
+        mSuggestAdapter = SuggestAdapter(resultList.toMutableList(),  this)
         mSuggestAdapter?.let {
             search_text_view.setAdapter(mSuggestAdapter)
         }
 
     }
 
+    @Suppress("IMPLICIT_CAST_TO_ANY")
     val mSuggestClickListener = AdapterView.OnItemClickListener { parent, view, position, id ->
         mSuggestAdapter?.getItem(position)?.let {
             val searchCenter = center.invoke()
             when (search_type_spinner.selectedItem) {
-                "Search" -> {
-                    SearchRequest(it.title).run {
+                "SEARCH" -> {
+                    Log.d(TAG, "Search")
+                    SearchRequest(it).run {
                         addReference(PVID_ID_REF_NAME)
                         addReference(VENUES_ID_REF_NAME)
                         addReference(VENUE_ID_REF_NAME)
@@ -73,9 +82,11 @@ class PlacesListActivity() : AppCompatActivity() {
                         addReference("opentable")
                         collectionSize = 30
                         setSearchCenter(searchCenter)
-                    }.execute(mDiscoveryResultListener)
+                        execute(mDiscoveryResultListener)
+                    }
                 }
-                "Explore" -> {
+                "EXPLORE" -> {
+                    Log.d(TAG, "Explore")
                     ExploreRequest().run {
                         addReference(PVID_ID_REF_NAME)
                         addReference(VENUES_ID_REF_NAME)
@@ -88,9 +99,11 @@ class PlacesListActivity() : AppCompatActivity() {
                         collectionSize = 30
                         setSearchCenter(searchCenter)
                         // TODO: Add category filter here
+                        execute(mDiscoveryResultListener)
                     }
                 }
-                "Around" -> {
+                "AROUND" -> {
+                    Log.d(TAG, "Around")
                     AroundRequest().run {
                         addReference(PVID_ID_REF_NAME)
                         addReference(VENUES_ID_REF_NAME)
@@ -103,9 +116,11 @@ class PlacesListActivity() : AppCompatActivity() {
                         collectionSize = 30
                         setSearchCenter(searchCenter)
                         // TODO: Add category filter here
+                        execute(mDiscoveryResultListener)
                     }
                 }
-                "Here" -> {
+                "HERE" -> {
+                    Log.d(TAG, "Here")
                     HereRequest().run {
                         addReference(PVID_ID_REF_NAME)
                         addReference(VENUES_ID_REF_NAME)
@@ -118,11 +133,12 @@ class PlacesListActivity() : AppCompatActivity() {
                         collectionSize = 30
                         setSearchCenter(searchCenter)
                         // TODO: Add category filter here
+                        execute(mDiscoveryResultListener)
                     }
 
                 }
                 else -> {
-
+                    Log.d(TAG, "No possible type")
                 }
 
             }
@@ -131,6 +147,7 @@ class PlacesListActivity() : AppCompatActivity() {
     }
 
     val mDiscoveryResultListener = ResultListener<DiscoveryResultPage> { page, error ->
+        Log.d(TAG, "Discovery result listener")
         if (error != ErrorCode.NONE) {
             Log.e(TAG, "Error while retrieving discovery result.\n${error.name}")
             return@ResultListener
@@ -190,6 +207,9 @@ class PlacesListActivity() : AppCompatActivity() {
 
         category_spinner.also {
             val categoryList = Category.globalCategories()
+        }
+        DividerItemDecoration(search_result_list.context, RecyclerView.HORIZONTAL).run {
+            search_result_list.addItemDecoration(this)
         }
 
     }

@@ -52,7 +52,8 @@ class MainActivity : AppCompatActivity() {
     val BUILDING_ID_REF_NAME = com.here.android.mpa.search.Request.BUILDING_ID_REFERENCE_NAME
     private val REQUEST_CODE : Int = 48317
     private lateinit var mapFragment:VenueMapFragment
-    private lateinit var map:Map
+//    private lateinit var map:Map
+    private var map: Map? = null
     private val mActivity = this
     private var mVenueCached: Boolean = false
     private var mVenueEnabled: Boolean = false
@@ -105,11 +106,12 @@ class MainActivity : AppCompatActivity() {
             finish()
         } else {
             map = mapFragment.map ?: return@OnEngineInitListener
-            map.setCenter(GeoCoordinate(40.74979,-73.98779, 0.0), Map.Animation.NONE)
-            map.setZoomLevel((map.maxZoomLevel + map.minZoomLevel) /  2, Map.Animation.NONE)
-            map.setCartoMarkersVisible(IconCategory.ALL, true)
-            map.projectionMode = Map.Projection.GLOBE
-
+            map?.let { map ->
+                map.setCenter(GeoCoordinate(40.74979,-73.98779, 0.0), Map.Animation.NONE)
+                map.setZoomLevel((map.maxZoomLevel + map.minZoomLevel) /  2, Map.Animation.NONE)
+                map.setCartoMarkersVisible(IconCategory.ALL, true)
+                map.projectionMode = Map.Projection.GLOBE
+            }
 
             mapFragment.mapGesture.addOnGestureListener(mGestureListener,1000, true)
             mapFragment.mapGesture.setAllGesturesEnabled(true)
@@ -133,7 +135,7 @@ class MainActivity : AppCompatActivity() {
             mAdapter?.clear()
             mMapPropBackup.run {
                 if (isValid) {
-                    map.setCenter(geocoord, Map.Animation.BOW, zoom, orientation, tilt)
+                    map?.setCenter(geocoord, Map.Animation.BOW, zoom, orientation, tilt)
                 }
             }
 
@@ -187,17 +189,19 @@ class MainActivity : AppCompatActivity() {
 
         override fun onVenueSelected(p0: Venue?) {
             Log.d(TAG, "onVenueSelected")
-
+            if (map == null) {
+                return
+            }
             p0?.let {
                 mMapPropBackup.run {
-                    geocoord = map.center
-                    zoom = map.zoomLevel
-                    orientation = map.orientation
-                    tilt = map.tilt
+                    geocoord = map?.center ?: GeoCoordinate(Double.NaN, Double.NaN)
+                    zoom = map?.zoomLevel ?: Double.NaN
+                    orientation = map?.orientation ?: 0.0F
+                    tilt = map?.tilt ?: Float.NaN
                 }
-                map.zoomTo(it.boundingBox,Map.Animation.BOW, map.orientation, 60.0F)
+                map?.zoomTo(it.boundingBox, Map.Animation.BOW, map?.orientation ?: 0.0F, 60.0F)
                 mAdapter = ArrayAdapter<CharSequence>(mActivity,
-                        android.R.layout.simple_dropdown_item_1line).takeIf {  mAdapter == null  }
+                        android.R.layout.simple_dropdown_item_1line).takeIf { mAdapter == null }
                 mAdapter?.let {
                     if (!it.isEmpty) {
                         it.clear()
@@ -209,11 +213,12 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 mSpinner?.let {
-                    it.adapter = mAdapter.takeIf {  _ ->  it.adapter == null }
+                    it.adapter = mAdapter.takeIf { _ -> it.adapter == null }
                     it.invalidate()
                 }
                 mapFragment.getVenueController(it).useVenueZoom(true)
             }
+
         }
 
         override fun onVenueTapped(p0: Venue?, p1: Float, p2: Float) {
@@ -287,13 +292,11 @@ class MainActivity : AppCompatActivity() {
                     Log.d(TAG, "Long press")
                     p0?.let {
                         if (mapFragment.selectedVenue == null) {
-                            if (map.getSelectedObjects(it).size <= 0) {
-                                val coord = map.pixelToGeo(it)
+                            if (map != null && map!!.getSelectedObjects(it).size <= 0) {
+                                val coord = map?.pixelToGeo(it)
                                 Log.d(TAG, "1")
                                 ReverseGeocodeRequest2(coord, Locale.ENGLISH)
                                         .execute(mGeocodeListener)
-
-
 
                             }
 
@@ -351,7 +354,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 override fun onTapEvent(p0: PointF?): Boolean {
                     p0?.let {
-                        map.getSelectedObjects(it)
+                        map?.getSelectedObjects(it)
                     }
 //                    p0?.let {
 //                        val coordinate = map.pixelToGeo(it)
@@ -507,11 +510,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
         search_activity_button.setOnClickListener {
-            if (MapEngine.isInitialized()) {
+            if (MapEngine.isInitialized() && map != null) {
                 val searchActivityIntent = Intent().run {
                     action = "com.here.chriswon.LAUNCH_SEARCH_ACTIVITY"
-                    putExtra("map_center_lat", map.center.latitude)
-                    putExtra("map_center_lon", map.center.longitude)
+                    putExtra("map_center_lat", map!!.center.latitude)
+                    putExtra("map_center_lon", map!!.center.longitude)
                 }
                 startActivityForResult(searchActivityIntent, REQUEST_CODE_SEARCH)
             }
@@ -526,14 +529,16 @@ class MainActivity : AppCompatActivity() {
             return
         }
         outState?.let {
-            val centerCoord = map.center
-            outState.putDouble("map_latitude", centerCoord.latitude)
-            outState.putDouble("map_longitude", centerCoord.longitude)
-            outState.putDouble("map_zoomlevel", map.zoomLevel)
-            outState.putFloat("map_orientation", map.orientation)
-            outState.putFloat("map_tilt", map.tilt)
-            mapFragment.selectedVenue?.let {
-                outState.putString("map_venue_id", it.id)
+            map?.let { map ->
+                val centerCoord = map.center
+                outState.putDouble("map_latitude", centerCoord.latitude)
+                outState.putDouble("map_longitude", centerCoord.longitude)
+                outState.putDouble("map_zoomlevel", map.zoomLevel)
+                outState.putFloat("map_orientation", map.orientation)
+                outState.putFloat("map_tilt", map.tilt)
+                mapFragment.selectedVenue?.let {
+                    outState.putString("map_venue_id", it.id)
+                }
             }
         }
     }
@@ -555,10 +560,10 @@ class MainActivity : AppCompatActivity() {
             val centerCoord:GeoCoordinate = GeoCoordinate(
                     it.getDouble("map_latitude",Double.NaN ),
                     it.getDouble("map_longitude", Double.NaN))
-            map.orientation = it.getFloat("map_orientation", Float.NaN)
-            map.tilt = it.getFloat("map_tilt", Float.NaN)
-            map.zoomLevel = it.getDouble("map_zoomlevel", Double.NaN)
-            map.setCenter(centerCoord, Map.Animation.NONE)
+            map?.orientation = it.getFloat("map_orientation", Float.NaN)
+            map?.tilt = it.getFloat("map_tilt", Float.NaN)
+            map?.zoomLevel = it.getDouble("map_zoomlevel", Double.NaN)
+            map?.setCenter(centerCoord, Map.Animation.NONE)
             it.getString("map_venue_id")?.let { venueId ->
                 mapFragment.run {
                     selectVenueAsync(venueId)

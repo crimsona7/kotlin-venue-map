@@ -29,9 +29,11 @@ class SuggestAdapter(list: MutableList<AutoSuggest>, activity: Activity) : BaseA
         return itemView
     }
 
-    override fun getItem(position: Int): AutoSuggest {
-        return mList[position]
+    override fun getItem(position: Int): String {
+        return mList[position].title
     }
+
+
 
     override fun getItemId(position: Int): Long {
         return mList[position].hashCode().toLong()

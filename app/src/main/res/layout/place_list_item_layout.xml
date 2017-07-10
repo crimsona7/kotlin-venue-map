@@ -1,22 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="horizontal" android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:orientation="horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="5dp"
+    android:layout_marginBottom="5dp">
     <ImageView
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:id="@+id/place_item_image_src"/>
+        android:id="@+id/place_item_image_src"
+        android:layout_weight="0.1"/>
     <TextView
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:textSize="16sp"
         android:textStyle="bold"
-        android:maxLines="1"
         android:ellipsize="end"
-        android:id="@+id/place_item_name"/>
+        android:id="@+id/place_item_name"
+        android:layout_weight="0.7"/>
     <TextView
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textSize="14sp"
-        android:id="@+id/place_item_category" />
+        android:textSize="12sp"
+        android:id="@+id/place_item_category"
+        android:layout_weight="0.2"/>
 </LinearLayout>
