@@ -13,6 +13,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import com.here.android.mpa.search.PlaceLink
 import com.here.android.mpa.search.Request
+import com.squareup.picasso.Picasso
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -27,6 +28,7 @@ class PlaceListAdapter(val context: Context,
                        val placeResults:List<PlaceLink>,
                        val listener: PlaceListAdapter.OnItemClickListener):
         RecyclerView.Adapter<PlaceListAdapter.PlaceViewHolder>() {
+
     class PlaceViewHolder(context: Context,
                           parent:ViewGroup?,
                           elementView: View = LayoutInflater
@@ -60,34 +62,17 @@ class PlaceListAdapter(val context: Context,
                     Log.d("List", "Category is ${category.name}")
                     listItem.placeCategory.text = category.name
                     Log.d("List", "Icon URL is ${iconUrl}")
-                    getBitmapFromUrl(iconUrl)?.let {
-                        listItem.placeIcon.setImageBitmap(it)
-                    }
+                    Picasso.with(context)
+                            .load(iconUrl)
+                            .into(listItem.placeIcon)
                     listItem.itemView.setOnClickListener {
                         listener.onItemClick(this)
                     }
                 }
             }
         }
-
     }
-    private fun getBitmapFromUrl(urlString: String) : Bitmap? {
-        var bitMap: Bitmap? = null
-        try {
-            Log.d("Bitmap", "URL is $urlString")
-            val url : URL = URL(urlString)
-            //TO-DO: Fix the connection run on Runnable thread
-            url.openConnection()?.let {
-                (it as HttpURLConnection).doInput = true
-                it.connect()
-                bitMap= BitmapFactory.decodeStream(it.inputStream)
-            }
 
-        } catch (exception:IOException) {
-            Log.e("Bitmap", "Error getting category Icon.\n${exception.message}")
-        }
-        return bitMap
-    }
 
     private fun checkShowItem(placeLink: PlaceLink): Boolean {
         if (placeLink.getReference(Request.PVID_ID_REFERENCE_NAME).isNotEmpty() ||

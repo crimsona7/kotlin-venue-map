@@ -8,8 +8,10 @@ package com.here.app.tcs
 import android.app.Dialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.PointF
+import android.graphics.drawable.Drawable
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.PersistableBundle
@@ -35,6 +37,10 @@ import com.here.android.mpa.search.*
 import com.here.android.mpa.search.Location
 import com.here.android.mpa.venues3d.*
 import com.here.android.mpa.venues3d.Space
+import com.squareup.picasso.Picasso
+import com.squareup.picasso.RequestCreator
+import com.squareup.picasso.Target
+import com.squareup.picasso.Transformation
 import java.lang.ref.WeakReference
 import java.util.*
 import kotlinx.android.synthetic.main.activity_main.*
@@ -85,6 +91,7 @@ class MainActivity : AppCompatActivity() {
                                                p1: GeoPosition?, p2: Boolean) {
                     p1?.let {
                         Log.d(TAG, "Position Updated- ${it.coordinate}, map ${if (p2) "matched" else "not matched"}")
+                        Log.d(TAG, "Position Updated Speed -${it.speed}")
                     }
 //                    map.setCenter(p1?.let {
 //                        it.coordinate.takeIf { p2 == true }
@@ -151,6 +158,7 @@ class MainActivity : AppCompatActivity() {
             if (p0 != null && p1 != null) {
                 val vnControl = mapFragment.getVenueController(p0)
                 val loc = SpaceLocation(p1, vnControl)
+                val routeContainer = route_container
                 mBottomSheetDialog.also {  dialog ->
                     setPlaceDialog(p1.content.name,
                                     p1.content.address.toString(),
@@ -158,8 +166,8 @@ class MainActivity : AppCompatActivity() {
                                     p1.content.phoneNumber)
                     Log.d(TAG, "Cat ID: ${p1.content.placeCategoryId}")
                     dialog.findViewById(R.id.set_departure).setOnClickListener {
-                        if (route_container.visibility == View.INVISIBLE) {
-                            route_container.visibility = View.VISIBLE
+                        if (routeContainer.visibility == View.INVISIBLE) {
+                            routeContainer.visibility = View.VISIBLE
                         }
                         departure_name.text = p1.content.name
                         startLocation = loc
@@ -167,8 +175,8 @@ class MainActivity : AppCompatActivity() {
                         mBottomSheetDialog.dismiss()
                     }
                     dialog.findViewById(R.id.set_destination).setOnClickListener {
-                        if (route_container.visibility == View.INVISIBLE) {
-                            route_container.visibility = View.VISIBLE
+                        if (routeContainer.visibility == View.INVISIBLE) {
+                            routeContainer.visibility = View.VISIBLE
                         }
                         destination_name.text = p1.content.name
                         endLocation = loc
@@ -312,6 +320,10 @@ class MainActivity : AppCompatActivity() {
                             list[0].also {
                                 if (ViewObject.Type.PROXY_OBJECT == it.baseType
                                      && (it as MapProxyObject).type == MapProxyObject.Type.MAP_CARTO_MARKER) {
+                                    val routeContainer = route_container
+                                    val departureName = departure_name
+                                    val destinationName = destination_name
+                                    val calculateButton = calculate_button
                                     val loc = (it as MapCartoMarker).location
                                     loc.info?.let { info ->
                                         setPlaceDialog(
@@ -322,21 +334,21 @@ class MainActivity : AppCompatActivity() {
                                         )
                                         mBottomSheetDialog.run {
                                             findViewById(R.id.set_departure).setOnClickListener {
-                                                if (route_container.visibility == View.INVISIBLE) {
-                                                    route_container.visibility = View.VISIBLE
+                                                if (routeContainer.visibility == View.INVISIBLE) {
+                                                    routeContainer.visibility = View.VISIBLE
                                                 }
-                                                departure_name.text = info.getField(LocationInfo.Field.PLACE_NAME)
+                                                departureName.text = info.getField(LocationInfo.Field.PLACE_NAME)
                                                 startLocation = OutdoorLocation(loc.coordinate)
-                                                calculate_button.isEnabled = (endLocation != null)
+                                                calculateButton.isEnabled = (endLocation != null)
                                                 mBottomSheetDialog.dismiss()
                                             }
                                             findViewById(R.id.set_destination).setOnClickListener {
-                                                if (route_container.visibility == View.INVISIBLE) {
-                                                    route_container.visibility = View.VISIBLE
+                                                if (routeContainer.visibility == View.INVISIBLE) {
+                                                    routeContainer.visibility = View.VISIBLE
                                                 }
-                                                departure_name.text = info.getField(LocationInfo.Field.PLACE_NAME)
+                                                destinationName.text = info.getField(LocationInfo.Field.PLACE_NAME)
                                                 endLocation = OutdoorLocation(loc.coordinate)
-                                                calculate_button.isEnabled = (startLocation != null)
+                                                calculateButton.isEnabled = (startLocation != null)
                                                 mBottomSheetDialog.dismiss()
                                             }
                                             show()
@@ -408,6 +420,10 @@ class MainActivity : AppCompatActivity() {
         val coord = location.coordinate
         if (errorCode == ErrorCode.NONE) {
             Log.d(TAG, "2")
+            val routeContainer = route_container
+            val departureName = departure_name
+            val destinationName = destination_name
+            val calculateButton = calculate_button
             mBottomSheetDialog.run {
                 setPlaceDialog(
                         coord.toString(),
@@ -415,23 +431,22 @@ class MainActivity : AppCompatActivity() {
                         "",
                         ""
                 )
-                findViewById(R.id.set_departure)
-                        .setOnClickListener {
-                            if (route_container.visibility == View.INVISIBLE) {
-                                route_container.visibility = View.VISIBLE
-                            }
-                            departure_name.text = coord.toString()
-                            startLocation = OutdoorLocation(coord)
-                            calculate_button.isEnabled = (endLocation != null)
-                            mBottomSheetDialog.dismiss()
-                        }
-                findViewById(R.id.set_destination).setOnClickListener {
-                    if (route_container.visibility == View.INVISIBLE) {
-                        route_container.visibility = View.VISIBLE
+                findViewById(R.id.set_departure).setOnClickListener {
+                    if (routeContainer.visibility == View.INVISIBLE) {
+                        routeContainer.visibility = View.VISIBLE
                     }
-                    destination_name.text = coord.toString()
+                    departureName.text = coord.toString()
+                    startLocation = OutdoorLocation(coord)
+                    calculateButton.isEnabled = (endLocation != null)
+                    mBottomSheetDialog.dismiss()
+                }
+                findViewById(R.id.set_destination).setOnClickListener {
+                    if (routeContainer.visibility == View.INVISIBLE) {
+                        routeContainer.visibility = View.VISIBLE
+                    }
+                    destinationName.text = coord.toString()
                     endLocation = OutdoorLocation(coord)
-                    calculate_button.isEnabled = (startLocation != null)
+                    calculateButton.isEnabled = (startLocation != null)
                     mBottomSheetDialog.dismiss()
                 }
                 show()
@@ -445,34 +460,63 @@ class MainActivity : AppCompatActivity() {
         if (errorCode != ErrorCode.NONE) {
             return@ResultListener
         }
-        setPlaceDialog(
-                poiName = place.name,
-                poiAddress = place.location.address.toString(),
-                poiCategory = place.categories.joinToString {   category ->
-                    return@joinToString category.name   },
-                poiPhone = place.contacts.joinToString { contactDetail ->
-                    return@joinToString "${contactDetail.type}: ${contactDetail.value}"
-                })
-        with(mBottomSheetDialog) {
-            this.findViewById(R.id.set_departure).setOnClickListener {
-                if (route_container.visibility == View.INVISIBLE) {
-                    route_container.visibility = View.VISIBLE
-                }
-                departure_name.text = place.name
-                startLocation = OutdoorLocation(place.location.coordinate)
-                calculate_button.isEnabled = (startLocation != null)
-                mBottomSheetDialog.dismiss()
-            }
-            this.findViewById(R.id.set_destination).setOnClickListener {
-                if (route_container.visibility == View.INVISIBLE) {
-                    route_container.visibility = View.VISIBLE
-                }
-                destination_name.text = place.name
-                endLocation = OutdoorLocation(place.location.coordinate)
+        place?.let {
+            val routeContainer = route_container
+            val departureName = departure_name
+            val destinationName = destination_name
+            val calculateButton = calculate_button
+            map?.setCenter(place.location.coordinate, Map.Animation.BOW,
+                    19.0, map?.orientation ?: 0.0F, map?.tilt ?: 0.0F)
 
-                calculate_button.isEnabled = (endLocation != null)
-                mBottomSheetDialog.dismiss()
+            val markerImage:Image = Image()
+            val picasso = Picasso.with(mActivity).load(place.categories[0].iconUrl)
+            picasso.into(object: Target {
+                override fun onPrepareLoad(p0: Drawable?) {
 
+                }
+
+                override fun onBitmapFailed(p0: Drawable?) {
+
+                }
+
+                override fun onBitmapLoaded(p0: Bitmap?, p1: Picasso.LoadedFrom?) {
+                    markerImage.bitmap = p0
+                    map?.addMapObject(MapMarker(place.location.coordinate, markerImage))
+                }
+            })
+
+//            markerImage.bitmap =
+//            map?.addMapObject(MapMarker(place.location.coordinate, markerImage))
+            setPlaceDialog(
+                    poiName = place.name,
+                    poiAddress = place.location.address.toString(),
+                    poiCategory = place.categories.joinToString {   category ->
+                        return@joinToString category.name   },
+                    poiPhone = place.contacts.joinToString { contactDetail ->
+                        return@joinToString "${contactDetail.type}: ${contactDetail.value}"
+                    })
+            with(mBottomSheetDialog) {
+                this.findViewById(R.id.set_departure).setOnClickListener {
+                    if (routeContainer.visibility == View.INVISIBLE) {
+                        routeContainer.visibility = View.VISIBLE
+                    }
+                    departureName.text = place.name
+                    startLocation = OutdoorLocation(place.location.coordinate)
+                    calculateButton.isEnabled = (startLocation != null)
+                    mBottomSheetDialog.dismiss()
+                }
+                this.findViewById(R.id.set_destination).setOnClickListener {
+                    if (routeContainer.visibility == View.INVISIBLE) {
+                        routeContainer.visibility = View.VISIBLE
+                    }
+                    destinationName.text = place.name
+                    endLocation = OutdoorLocation(place.location.coordinate)
+
+                    calculateButton.isEnabled = (endLocation != null)
+                    mBottomSheetDialog.dismiss()
+
+                }
+                show()
             }
         }
     }
@@ -705,6 +749,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        Log.d(TAG, "onActivityResult: requestCode - $requestCode, resultCode - $resultCode")
+        Log.d(TAG, "onActivityResult: Intent action - ${intent.action}")
         when (requestCode) {
             REQUEST_CODE_SEARCH -> {
                 data?.let {
@@ -725,31 +771,36 @@ class MainActivity : AppCompatActivity() {
                                 it.extras.getString("places_opentable_id", ""))
                         val placeVenueId = Pair<String, String>(VENUE_ID_REF_NAME,
                                 it.extras.getString("places_venue_id", ""))
-                        if (intent.action == "com.here.tcs.chriswon.PICK_LOCATION") {
-                            if (placeVenueId.second.isNotEmpty()) {
-                                mapFragment.selectVenueAsync(placeVenueId.second)
+                        Log.d(TAG, "onActivityResult: $placePVID, $placeBuildingId, $placeFacebookId, $placeYelpId, $placeTAId, $placeOTId, $placeVenueId, $placeId")
+                        if (placeVenueId.second.isNotEmpty()) {
+                            mapFragment.selectVenueAsync(placeVenueId.second)
+                        } else {
+                            val placeRequest: PlaceRequest? =
+                            if (placePVID.second.isNotEmpty()) {
+                                PlaceRequest(placePVID.first, placePVID.second)
+                            } else if (placeBuildingId.second.isNotEmpty()) {
+                                PlaceRequest(placeBuildingId.first, placeBuildingId.second)
+                            } else if (placeFacebookId.second.isNotEmpty()){
+                                PlaceRequest(placeFacebookId.first, placeFacebookId.second)
+                            } else if (placeYelpId.second.isNotEmpty()){
+                                PlaceRequest(placeYelpId.first, placeYelpId.second)
+                            } else if (placeTAId.second.isNotEmpty()){
+                                PlaceRequest(placeTAId.first, placeTAId.second)
+                            } else if (placeOTId.second.isNotEmpty()) {
+                                PlaceRequest(placeOTId.first, placeOTId.second)
                             } else {
-                                val placeRequest: PlaceRequest =
-                                if (placePVID.second.isNotEmpty()) {
-                                    PlaceRequest(placePVID.first, placePVID.second)
-                                } else if (placeBuildingId.second.isNotEmpty()) {
-                                    PlaceRequest(placeBuildingId.first, placeBuildingId.second)
-                                } else if (placeFacebookId.second.isNotEmpty()){
-                                    PlaceRequest(placeFacebookId.first, placeFacebookId.second)
-                                } else if (placeYelpId.second.isNotEmpty()){
-                                    PlaceRequest(placeYelpId.first, placeYelpId.second)
-                                } else if (placeTAId.second.isNotEmpty()){
-                                    PlaceRequest(placeTAId.first, placeTAId.second)
-                                } else  {
-                                    PlaceRequest(placeOTId.first, placeOTId.second)
-                                }
-                                placeRequest.execute(mPlaceRequestListener)
-
+                                null
                             }
+                            if (placeRequest == null) {
+                                Log.e(TAG, "PlaceRequest is null")
+                            }
+                            placeRequest?.execute(mPlaceRequestListener)
+
                         }
                     }
                 }
             }
         }
     }
+
 }

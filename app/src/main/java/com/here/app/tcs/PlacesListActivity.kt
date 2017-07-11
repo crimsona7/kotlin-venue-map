@@ -1,6 +1,7 @@
 package com.here.app.tcs
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
@@ -11,11 +12,15 @@ import android.text.Editable
 import android.text.SpannableStringBuilder
 import android.text.TextWatcher
 import android.util.Log
+import android.view.KeyEvent
+import android.view.View
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import com.here.android.mpa.common.GeoCoordinate
 import com.here.android.mpa.search.*
 import kotlinx.android.synthetic.main.activity_places_list.*
-import java.util.*
+import java.util.Locale
 
 
 class PlacesListActivity() : AppCompatActivity() {
@@ -67,82 +72,7 @@ class PlacesListActivity() : AppCompatActivity() {
     @Suppress("IMPLICIT_CAST_TO_ANY")
     val mSuggestClickListener = AdapterView.OnItemClickListener { parent, view, position, id ->
         mSuggestAdapter?.getItem(position)?.let {
-            val searchCenter = center.invoke()
-            when (search_type_spinner.selectedItem) {
-                "SEARCH" -> {
-                    Log.d(TAG, "Search")
-                    SearchRequest(it).run {
-                        addReference(PVID_ID_REF_NAME)
-                        addReference(VENUES_ID_REF_NAME)
-                        addReference(VENUE_ID_REF_NAME)
-                        addReference(BUILDING_ID_REF_NAME)
-                        addReference("facebook")
-                        addReference("yelp")
-                        addReference("tripadvisor")
-                        addReference("opentable")
-                        collectionSize = 30
-                        setSearchCenter(searchCenter)
-                        execute(mDiscoveryResultListener)
-                    }
-                }
-                "EXPLORE" -> {
-                    Log.d(TAG, "Explore")
-                    ExploreRequest().run {
-                        addReference(PVID_ID_REF_NAME)
-                        addReference(VENUES_ID_REF_NAME)
-                        addReference(VENUE_ID_REF_NAME)
-                        addReference(BUILDING_ID_REF_NAME)
-                        addReference("facebook")
-                        addReference("yelp")
-                        addReference("tripadvisor")
-                        addReference("opentable")
-                        collectionSize = 30
-                        setSearchCenter(searchCenter)
-                        // TODO: Add category filter here
-                        execute(mDiscoveryResultListener)
-                    }
-                }
-                "AROUND" -> {
-                    Log.d(TAG, "Around")
-                    AroundRequest().run {
-                        addReference(PVID_ID_REF_NAME)
-                        addReference(VENUES_ID_REF_NAME)
-                        addReference(VENUE_ID_REF_NAME)
-                        addReference(BUILDING_ID_REF_NAME)
-                        addReference("facebook")
-                        addReference("yelp")
-                        addReference("tripadvisor")
-                        addReference("opentable")
-                        collectionSize = 30
-                        setSearchCenter(searchCenter)
-                        // TODO: Add category filter here
-                        execute(mDiscoveryResultListener)
-                    }
-                }
-                "HERE" -> {
-                    Log.d(TAG, "Here")
-                    HereRequest().run {
-                        addReference(PVID_ID_REF_NAME)
-                        addReference(VENUES_ID_REF_NAME)
-                        addReference(VENUE_ID_REF_NAME)
-                        addReference(BUILDING_ID_REF_NAME)
-                        addReference("facebook")
-                        addReference("yelp")
-                        addReference("tripadvisor")
-                        addReference("opentable")
-                        collectionSize = 30
-                        setSearchCenter(searchCenter)
-                        // TODO: Add category filter here
-                        execute(mDiscoveryResultListener)
-                    }
-
-                }
-                else -> {
-                    Log.d(TAG, "No possible type")
-                }
-
-            }
-
+            initiateSearch(it)
         }
     }
 
@@ -169,14 +99,36 @@ class PlacesListActivity() : AppCompatActivity() {
                     putExtra("places_opentable_id", link.getReference("opentable"))
 //                    putExtra("places_venues_id", link.getReference(VENUES_ID_REF_NAME))
                     putExtra("places_venue_id", link.getReference(VENUE_ID_REF_NAME))
-                    setResult(Activity.RESULT_OK, intent)
+                    setResult(Activity.RESULT_OK, this)
                     finish()
                 }
             }
         }
     }
 
+    val mEditorActionListener = TextView.OnEditorActionListener { _, actionId, _ ->
+        Log.d(TAG, "Editor Action Listener")
+        Log.d(TAG, "Action ID is $actionId")
+        val text:Editable = search_text_view.text
+        val imm: InputMethodManager
+                = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+            if (!text.isNullOrEmpty() && text.isNotBlank()) {
+                initiateSearch(text.toString())
+                imm.hideSoftInputFromWindow(search_text_view.windowToken, 0)
+                search_text_view.clearFocus()
+                return@OnEditorActionListener true
+            }
+        }
+        return@OnEditorActionListener false
+    }
 
+    val mButtonClickListener:(View) -> Unit = {
+        Log.d(TAG, "Button Click Listener")
+        if (!search_text_view.text.isNullOrEmpty() && search_text_view.text.isNotBlank()) {
+            initiateSearch(search_text_view.text.toString())
+        }
+    }
 
     var mSuggestAdapter : SuggestAdapter? = null
     var mapCenter: GeoCoordinate? = null
@@ -191,8 +143,12 @@ class PlacesListActivity() : AppCompatActivity() {
             !mapLat.isNaN() && !mapLon.isNaN()
         }
 
-        search_text_view.addTextChangedListener(mTextWatcher)
-        search_text_view.onItemClickListener = mSuggestClickListener
+        with(search_text_view) {
+            addTextChangedListener(mTextWatcher)
+            onItemClickListener = mSuggestClickListener
+            setOnEditorActionListener(mEditorActionListener)
+        }
+
         search_type_spinner.setSelection(0)
 
         locale_spinner.also {
@@ -211,6 +167,7 @@ class PlacesListActivity() : AppCompatActivity() {
         DividerItemDecoration(search_result_list.context, RecyclerView.HORIZONTAL).run {
             search_result_list.addItemDecoration(this)
         }
+        place_search_button.setOnClickListener(mButtonClickListener)
 
     }
 
@@ -226,6 +183,83 @@ class PlacesListActivity() : AppCompatActivity() {
             mapCenter as GeoCoordinate
         } else {
             GeoCoordinate(41.88415, -87.63189)
+        }
+    }
+    private fun initiateSearch(query: String) {
+        val searchCenter = center.invoke()
+        when (search_type_spinner.selectedItem) {
+            "SEARCH" -> {
+                Log.d(TAG, "Search")
+                SearchRequest(query).run {
+                    addReference(PVID_ID_REF_NAME)
+                    addReference(VENUES_ID_REF_NAME)
+                    addReference(VENUE_ID_REF_NAME)
+                    addReference(BUILDING_ID_REF_NAME)
+                    addReference("facebook")
+                    addReference("yelp")
+                    addReference("tripadvisor")
+                    addReference("opentable")
+                    collectionSize = 30
+                    setSearchCenter(searchCenter)
+                    execute(mDiscoveryResultListener)
+                }
+            }
+            "EXPLORE" -> {
+                Log.d(TAG, "Explore")
+                ExploreRequest().run {
+                    addReference(PVID_ID_REF_NAME)
+                    addReference(VENUES_ID_REF_NAME)
+                    addReference(VENUE_ID_REF_NAME)
+                    addReference(BUILDING_ID_REF_NAME)
+                    addReference("facebook")
+                    addReference("yelp")
+                    addReference("tripadvisor")
+                    addReference("opentable")
+                    collectionSize = 30
+                    setSearchCenter(searchCenter)
+                    // TODO: Add category filter here
+                    execute(mDiscoveryResultListener)
+                }
+            }
+            "AROUND" -> {
+                Log.d(TAG, "Around")
+                AroundRequest().run {
+                    addReference(PVID_ID_REF_NAME)
+                    addReference(VENUES_ID_REF_NAME)
+                    addReference(VENUE_ID_REF_NAME)
+                    addReference(BUILDING_ID_REF_NAME)
+                    addReference("facebook")
+                    addReference("yelp")
+                    addReference("tripadvisor")
+                    addReference("opentable")
+                    collectionSize = 30
+                    setSearchCenter(searchCenter)
+                    // TODO: Add category filter here
+                    execute(mDiscoveryResultListener)
+                }
+            }
+            "HERE" -> {
+                Log.d(TAG, "Here")
+                HereRequest().run {
+                    addReference(PVID_ID_REF_NAME)
+                    addReference(VENUES_ID_REF_NAME)
+                    addReference(VENUE_ID_REF_NAME)
+                    addReference(BUILDING_ID_REF_NAME)
+                    addReference("facebook")
+                    addReference("yelp")
+                    addReference("tripadvisor")
+                    addReference("opentable")
+                    collectionSize = 30
+                    setSearchCenter(searchCenter)
+                    // TODO: Add category filter here
+                    execute(mDiscoveryResultListener)
+                }
+
+            }
+            else -> {
+                Log.d(TAG, "No possible type")
+            }
+
         }
     }
 }

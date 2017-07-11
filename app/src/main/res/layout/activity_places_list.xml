@@ -35,6 +35,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="0.2"
             android:contentDescription="@string/search_button_description"
+            android:id="@+id/place_search_button"
             android:src="@android:drawable/ic_menu_search" />
     </LinearLayout>
     <LinearLayout
