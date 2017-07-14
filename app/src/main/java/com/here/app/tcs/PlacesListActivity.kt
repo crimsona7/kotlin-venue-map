@@ -62,6 +62,7 @@ class PlacesListActivity() : AppCompatActivity() {
             return@filter false
         }
 
+
         mSuggestAdapter = SuggestAdapter(resultList.toMutableList(),  this)
         mSuggestAdapter?.let {
             search_text_view.setAdapter(mSuggestAdapter)
@@ -82,6 +83,9 @@ class PlacesListActivity() : AppCompatActivity() {
             Log.e(TAG, "Error while retrieving discovery result.\n${error.name}")
             return@ResultListener
         }
+        Log.d(TAG, "Number of discovery results: ${page.items.size}")
+        Log.d(TAG, "Number of discovery links: ${page.discoveryLinks.size}")
+        Log.d(TAG, "Number of place links: ${page.placeLinks}")
         search_result_list.adapter = PlaceListAdapter(this, page.placeLinks, mOnItemClickListener)
     }
 

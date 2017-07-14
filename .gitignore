@@ -7,3 +7,8 @@
 /build
 /captures
 .externalNativeBuild
+/app/src/main/res/values/cred.xml
+/app/libs/HERE-sdk.aar
+/app/libs/HERE-sdk-javadoc.jar
+.idea/
+app/src/main/res/values/cred.xml

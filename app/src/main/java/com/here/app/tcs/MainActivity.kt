@@ -127,11 +127,6 @@ class MainActivity : AppCompatActivity() {
                 val pm: PositioningManager = PositioningManager.getInstance()
                 pm.dataSource = it
                 pm.addListener(WeakReference(mPositionListener))
-                pm.start(PositioningManager.LocationMethod.GPS_NETWORK_INDOOR).also {
-                    if (!it) {
-                        Log.e(TAG, "PostioningManager: Start failed")
-                    }
-                }
                 it.indoorPositioningMode = LocationDataSourceHERE.IndoorPositioningMode.AUTOMATIC
             }
         }
@@ -186,7 +181,9 @@ class MainActivity : AppCompatActivity() {
 
                     }
                 }
-                mBottomSheetDialog.show()
+                if (!mBottomSheetDialog.isShowing) {
+                    mBottomSheetDialog.show()
+                }
             }
 
         }
@@ -207,7 +204,9 @@ class MainActivity : AppCompatActivity() {
                     orientation = map?.orientation ?: 0.0F
                     tilt = map?.tilt ?: Float.NaN
                 }
-                map?.zoomTo(it.boundingBox, Map.Animation.BOW, map?.orientation ?: 0.0F, 60.0F)
+                if (!it.boundingBox.contains(map?.boundingBox)) {
+                    map?.zoomTo(it.boundingBox, Map.Animation.BOW, map?.orientation ?: 0.0F, 60.0F)
+                }
                 mAdapter = ArrayAdapter<CharSequence>(mActivity,
                         android.R.layout.simple_dropdown_item_1line).takeIf { mAdapter == null }
                 mAdapter?.let {
@@ -351,7 +350,7 @@ class MainActivity : AppCompatActivity() {
                                                 calculateButton.isEnabled = (startLocation != null)
                                                 mBottomSheetDialog.dismiss()
                                             }
-                                            show()
+                                            if (!isShowing) show()
                                         }
 
                                     }
@@ -449,7 +448,7 @@ class MainActivity : AppCompatActivity() {
                     calculateButton.isEnabled = (startLocation != null)
                     mBottomSheetDialog.dismiss()
                 }
-                show()
+                if (!isShowing) show()
 
             }
 
@@ -516,7 +515,7 @@ class MainActivity : AppCompatActivity() {
                     mBottomSheetDialog.dismiss()
 
                 }
-                show()
+                if (!isShowing) show()
             }
         }
     }
@@ -589,9 +588,16 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (MapEngine.isInitialized()) {
+            PositioningManager.getInstance()
+                    .start(PositioningManager.LocationMethod.GPS_NETWORK_INDOOR)
+        }
     }
 
     override fun onPause() {
+        if (MapEngine.isInitialized()) {
+            PositioningManager.getInstance().stop()
+        }
         super.onPause()
     }
 
