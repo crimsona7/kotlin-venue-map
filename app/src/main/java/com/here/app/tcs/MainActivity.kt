@@ -688,6 +688,20 @@ class MainActivity : AppCompatActivity() {
         return super.onCreateOptionsMenu(menu)
     }
 
+    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
+        when (item?.itemId) {
+            R.id.menu_about -> {
+                val intent: Intent = Intent("com.here.chriswon.LAUNCH_ABOUT_ACTIVITY")
+                startActivity(intent)
+                return false
+            }
+            else -> {
+
+            }
+        }
+        return true
+    }
+
     fun onClickCalculateButton(v: View): Unit {
         val routeOption: VenueRouteOptions = VenueRouteOptions()
         routeOption.flagsVisible = true
@@ -808,5 +822,4 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
 }

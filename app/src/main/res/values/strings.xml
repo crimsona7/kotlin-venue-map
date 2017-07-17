@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name" translatable="false">KotlinMobileSDKDemo</string>
     <string name="title_activity_place_discovery">PlaceDiscoveryActivity</string>
-    <string  name="search_button_description">"Search Button"</string>
+    <string name="search_button_description">"Search Button"</string>
     <string name="action_settings">Settings</string>
+    <string name="action_about">"About…"</string>
 </resources>
