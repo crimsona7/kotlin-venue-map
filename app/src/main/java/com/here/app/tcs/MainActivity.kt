@@ -14,6 +14,7 @@ import android.graphics.PointF
 import android.graphics.drawable.Drawable
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Parcelable
 import android.os.PersistableBundle
 import android.support.design.widget.FloatingActionButton
 import android.support.v4.app.ActivityCompat
@@ -60,7 +61,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mapFragment:VenueMapFragment
 //    private lateinit var map:Map
     private var map: Map? = null
-    private val mActivity = this
+    public val mActivity = this
     private var mVenueCached: Boolean = false
     private var mVenueEnabled: Boolean = false
     private var mSpinner: Spinner? = null
@@ -456,6 +457,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     val mPlaceRequestListener = ResultListener<Place> { place, errorCode ->
+        Log.d(TAG, "Place request listener")
         if (errorCode != ErrorCode.NONE) {
             return@ResultListener
         }
@@ -467,9 +469,9 @@ class MainActivity : AppCompatActivity() {
             map?.setCenter(place.location.coordinate, Map.Animation.BOW,
                     19.0, map?.orientation ?: 0.0F, map?.tilt ?: 0.0F)
 
-            val markerImage:Image = Image()
+            val markerImage: Image = Image()
             val picasso = Picasso.with(mActivity).load(place.categories[0].iconUrl)
-            picasso.into(object: Target {
+            picasso.into(object : Target {
                 override fun onPrepareLoad(p0: Drawable?) {
 
                 }
@@ -489,8 +491,9 @@ class MainActivity : AppCompatActivity() {
             setPlaceDialog(
                     poiName = place.name,
                     poiAddress = place.location.address.toString(),
-                    poiCategory = place.categories.joinToString {   category ->
-                        return@joinToString category.name   },
+                    poiCategory = place.categories.joinToString { category ->
+                        return@joinToString category.name
+                    },
                     poiPhone = place.contacts.joinToString { contactDetail ->
                         return@joinToString "${contactDetail.type}: ${contactDetail.value}"
                     })
@@ -775,47 +778,56 @@ class MainActivity : AppCompatActivity() {
             REQUEST_CODE_SEARCH -> {
                 data?.let {
                     if (resultCode == RESULT_OK) {
-                        val placeId = it.extras.getString("places_id", "")
-                        val placePVID = Pair<String, String>(PVID_ID_REF_NAME,
-                                it.extras.getString("places_pvid", ""))
+                        val placeLink: PlaceLink? = PlaceLinkBridge.link
 
-                        val placeBuildingId = Pair<String, String>(BUILDING_ID_REF_NAME,
-                                it.extras.getString("places_building_id", ""))
-                        val placeFacebookId = Pair <String, String>("facebook",
-                                it.extras.getString("places_facebook_id", ""))
-                        val placeYelpId = Pair<String, String>("yelp",
-                                it.extras.getString("places_yelp_id", ""))
-                        val placeTAId = Pair<String, String>("tripadvisor",
-                                it.extras.getString("places_tripadvisor_id", ""))
-                        val placeOTId = Pair<String, String>("opentable",
-                                it.extras.getString("places_opentable_id", ""))
-                        val placeVenueId = Pair<String, String>(VENUE_ID_REF_NAME,
-                                it.extras.getString("places_venue_id", ""))
-                        Log.d(TAG, "onActivityResult: $placePVID, $placeBuildingId, $placeFacebookId, $placeYelpId, $placeTAId, $placeOTId, $placeVenueId, $placeId")
-                        if (placeVenueId.second.isNotEmpty()) {
-                            mapFragment.selectVenueAsync(placeVenueId.second)
-                        } else {
-                            val placeRequest: PlaceRequest? =
-                            if (placePVID.second.isNotEmpty()) {
-                                PlaceRequest(placePVID.first, placePVID.second)
-                            } else if (placeBuildingId.second.isNotEmpty()) {
-                                PlaceRequest(placeBuildingId.first, placeBuildingId.second)
-                            } else if (placeFacebookId.second.isNotEmpty()){
-                                PlaceRequest(placeFacebookId.first, placeFacebookId.second)
-                            } else if (placeYelpId.second.isNotEmpty()){
-                                PlaceRequest(placeYelpId.first, placeYelpId.second)
-                            } else if (placeTAId.second.isNotEmpty()){
-                                PlaceRequest(placeTAId.first, placeTAId.second)
-                            } else if (placeOTId.second.isNotEmpty()) {
-                                PlaceRequest(placeOTId.first, placeOTId.second)
+//                        val placeId = it.extras.getString("places_id", "")
+//                        val placePVID = Pair<String, String>(PVID_ID_REF_NAME,
+//                                it.extras.getString("places_pvid", ""))
+//
+//                        val placeBuildingId = Pair<String, String>(BUILDING_ID_REF_NAME,
+//                                it.extras.getString("places_building_id", ""))
+//                        val placeFacebookId = Pair <String, String>("facebook",
+//                                it.extras.getString("places_facebook_id", ""))
+//                        val placeYelpId = Pair<String, String>("yelp",
+//                                it.extras.getString("places_yelp_id", ""))
+//                        val placeTAId = Pair<String, String>("tripadvisor",
+//                                it.extras.getString("places_tripadvisor_id", ""))
+//                        val placeOTId = Pair<String, String>("opentable",
+//                                it.extras.getString("places_opentable_id", ""))
+//                        val placeVenueId = Pair<String, String>(VENUE_ID_REF_NAME,
+//                                it.extras.getString("places_venue_id", ""))
+//                        Log.d(TAG, "onActivityResult: $placePVID, $placeBuildingId, $placeFacebookId, $placeYelpId, $placeTAId, $placeOTId, $placeVenueId, $placeId")
+//                        if (placeVenueId.second.isNotEmpty()) {
+//                            mapFragment.selectVenueAsync(placeVenueId.second)
+//                        } else {
+//                            val placeRequest: PlaceRequest? =
+//                            if (placePVID.second.isNotEmpty()) {
+//                                PlaceRequest(placePVID.first, placePVID.second)
+//                            } else if (placeBuildingId.second.isNotEmpty()) {
+//                                PlaceRequest(placeBuildingId.first, placeBuildingId.second)
+//                            } else if (placeFacebookId.second.isNotEmpty()){
+//                                PlaceRequest(placeFacebookId.first, placeFacebookId.second)
+//                            } else if (placeYelpId.second.isNotEmpty()){
+//                                PlaceRequest(placeYelpId.first, placeYelpId.second)
+//                            } else if (placeTAId.second.isNotEmpty()){
+//                                PlaceRequest(placeTAId.first, placeTAId.second)
+//                            } else if (placeOTId.second.isNotEmpty()) {
+//                                PlaceRequest(placeOTId.first, placeOTId.second)
+//                            } else {
+//                                null
+//                            }
+//                            if (placeRequest == null) {
+//                                Log.e(TAG, "PlaceRequest is null")
+//                            }
+                            Log.d(TAG, "requesting for detailed place data")
+//                            placeRequest?.execute(mPlaceRequestListener)
+                        placeLink?.let{ plink ->
+                            val venueRef: String? = plink.getReference(Request.VENUES_ID_REFERENCE_NAME)
+                            if (!venueRef.isNullOrEmpty()) {
+                                var info = mapFragment.selectVenueAsync(venueRef)
                             } else {
-                                null
+                                plink.detailsRequest.execute(mPlaceRequestListener)
                             }
-                            if (placeRequest == null) {
-                                Log.e(TAG, "PlaceRequest is null")
-                            }
-                            placeRequest?.execute(mPlaceRequestListener)
-
                         }
                     }
                 }

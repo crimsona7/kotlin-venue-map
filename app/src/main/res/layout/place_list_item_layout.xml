@@ -9,7 +9,8 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:id="@+id/place_item_image_src"
-        android:layout_weight="0.1"/>
+        android:layout_weight="0.1"
+        android:contentDescription="@string/category_icon_description"/>
     <TextView
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -18,6 +19,13 @@
         android:ellipsize="end"
         android:id="@+id/place_item_name"
         android:layout_weight="0.7"/>
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="invisible"
+        android:id="@+id/place_item_venue_identifier"
+        android:text="V"
+        android:layout_weight="0.1"/>
     <TextView
         android:layout_width="0dp"
         android:layout_height="wrap_content"

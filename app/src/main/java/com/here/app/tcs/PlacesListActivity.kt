@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Parcel
+import android.os.Parcelable
 import android.support.v7.widget.DividerItemDecoration
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
@@ -91,20 +93,23 @@ class PlacesListActivity() : AppCompatActivity() {
 
     val mOnItemClickListener = object : PlaceListAdapter.OnItemClickListener {
         override fun onItemClick(link: PlaceLink?) {
+
             link?.let {
                 Intent().run {
                     action = "com.here.tcs.chriswon.PICK_LOCATION"
-                    putExtra("places_id", link.id)
-                    putExtra("places_pvid", link.getReference(PVID_ID_REF_NAME))
-                    putExtra("places_building_id", link.getReference(BUILDING_ID_REF_NAME))
-                    putExtra("places_facebook_id", link.getReference("facebook"))
-                    putExtra("places_yelp_id", link.getReference("yelp"))
-                    putExtra("places_tripadvisor_id", link.getReference("tripadvisor"))
-                    putExtra("places_opentable_id", link.getReference("opentable"))
+//                    putExtra("places_id", link.id)
+//                    putExtra("places_pvid", link.getReference(PVID_ID_REF_NAME))
+//                    putExtra("places_building_id", link.getReference(BUILDING_ID_REF_NAME))
+//                    putExtra("places_facebook_id", link.getReference("facebook"))
+//                    putExtra("places_yelp_id", link.getReference("yelp"))
+//                    putExtra("places_tripadvisor_id", link.getReference("tripadvisor"))
+//                    putExtra("places_opentable_id", link.getReference("opentable"))
 //                    putExtra("places_venues_id", link.getReference(VENUES_ID_REF_NAME))
-                    putExtra("places_venue_id", link.getReference(VENUE_ID_REF_NAME))
+//                    putExtra("places_venue_id", link.getReference(VENUE_ID_REF_NAME))
+                    PlaceLinkBridge.link = link
                     setResult(Activity.RESULT_OK, this)
                     finish()
+                    Log.d(TAG, "finishing activity")
                 }
             }
         }
@@ -143,6 +148,7 @@ class PlacesListActivity() : AppCompatActivity() {
         setContentView(R.layout.activity_places_list)
         val mapLat = intent.getDoubleExtra("map_center_lat", Double.NaN)
         val mapLon = intent.getDoubleExtra("map_center_lon", Double.NaN)
+
         mapCenter = GeoCoordinate(mapLat, mapLon).takeIf {
             !mapLat.isNaN() && !mapLon.isNaN()
         }

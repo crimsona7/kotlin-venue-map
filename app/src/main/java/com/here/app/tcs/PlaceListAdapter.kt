@@ -28,7 +28,6 @@ class PlaceListAdapter(val context: Context,
                        val placeResults:List<PlaceLink>,
                        val listener: PlaceListAdapter.OnItemClickListener):
         RecyclerView.Adapter<PlaceListAdapter.PlaceViewHolder>() {
-
     class PlaceViewHolder(context: Context,
                           parent:ViewGroup?,
                           elementView: View = LayoutInflater
@@ -38,6 +37,7 @@ class PlaceListAdapter(val context: Context,
         var placeName = elementView.findViewById(R.id.place_item_name) as TextView
         var placeCategory = elementView.findViewById(R.id.place_item_category) as TextView
         var placeIcon = elementView.findViewById(R.id.place_item_image_src) as ImageView
+        var venueMark = elementView.findViewById(R.id.place_item_venue_identifier) as TextView
     }
 
     interface OnItemClickListener {
@@ -67,6 +67,11 @@ class PlaceListAdapter(val context: Context,
                             .into(listItem.placeIcon)
                     listItem.itemView.setOnClickListener {
                         listener.onItemClick(this)
+                    }
+                    if (!getReference(Request.VENUES_ID_REFERENCE_NAME).isNullOrEmpty()) {
+                        listItem.venueMark.visibility = View.VISIBLE
+                    } else {
+                        listItem.venueMark.visibility = View.INVISIBLE
                     }
                 }
             }
